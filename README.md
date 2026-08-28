@@ -1,2 +1,44 @@
-# meetingpoll_moodle-database-preset
-Find a Time – Collaborative scheduling for Moodle. Organisers propose time slots; participants answer Yes / Maybe / No.
+# Meeting Poll
+
+Meeting Poll is a preset for the Moodle activity database.
+
+## Description
+
+Organisers propose time slots; participants answer Yes / Maybe / No.
+
+The list view shows a clear matrix of all responses and highlights the best-fitting appointments.
+Supports all-day events, optional notes, and automatic validation of the time slot list.
+
+## Features
+
+- **Time slot management** via a menu field (ISO dates: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM`)
+- **Three-way answers**: Yes (✓), Maybe (?), No (✗)
+- **Automatic overview table** with all participants and slots
+- **Best appointment highlighting** (highest number of “Yes” answers)
+- **Grouping by day** with shared day labels
+- **All-day events** supported (`YYYY-MM-DD` without time)
+- **Optional note** per entry
+- **Edit support** – existing answers are restored when editing an entry
+- Validation & warnings for invalid or duplicate slots
+
+
+## Getting started
+
+Download the [release file](https://github.com/fdagner/meetingpoll_moodle-database-preset/releases). 
+Create a "Database" activity in Moodle and then upload the ZIP file.
+Edit the **events** field and enter one time slot per line, e.g.:
+2026-06-14T14:00
+2026-06-14T16:00
+2026-06-15T12:00
+2026-06-16
+text- With time: `YYYY-MM-DDTHH:MM`
+- All-day: `YYYY-MM-DD`
+
+## Language Support
+
+The preset is available in German, but there is not so much to translate. The template can easily be adapted. 
+
+## Screenshots
+
+<img width="400" alt="single view" src="/screenshots/einzelansicht.png">
+<img width="400" alt="single view" src="/screenshots/listenansicht.png">
