@@ -27,12 +27,12 @@ Supports all-day events, optional notes, and automatic validation of the time sl
 Download the [release file](https://github.com/fdagner/meetingpoll_moodle-database-preset/releases). 
 Create a "Database" activity in Moodle and then upload the ZIP file.
 Edit the **events** field and enter one time slot per line, e.g.:
-*2026-06-14T14:00
-*2026-06-14T16:00
-*2026-06-15T12:00
-*2026-06-16
-*text- With time: `YYYY-MM-DDTHH:MM`
-*All-day: `YYYY-MM-DD`
+- 2026-06-14T14:00
+- 2026-06-14T16:00
+- 2026-06-15T12:00
+- 2026-06-16
+- text- With time: `YYYY-MM-DDTHH:MM`
+All-day: `YYYY-MM-DD`
 
 ## Language Support
 
