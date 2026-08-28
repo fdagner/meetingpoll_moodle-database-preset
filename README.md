@@ -40,5 +40,5 @@ The preset is available in German, but there is not so much to translate. The te
 
 ## Screenshots
 
-<img alt="list view" src="/screenshots/einzelansicht.png">
-<img width="400" alt="list view" src="/screenshots/listenansicht.png">
+<img style="width: 75%" alt="list view" src="/screenshots/einzelansicht.png">
+<img style="width: 75%" alt="list view" src="/screenshots/listenansicht.png">
