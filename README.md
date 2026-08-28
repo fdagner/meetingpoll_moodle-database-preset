@@ -31,8 +31,8 @@ Edit the **events** field and enter one time slot per line, e.g.:
 - 2026-06-14T16:00
 - 2026-06-15T12:00
 - 2026-06-16
-- text- With time: `YYYY-MM-DDTHH:MM`
-All-day: `YYYY-MM-DD`
+- With time: `YYYY-MM-DDTHH:MM`
+- All-day: `YYYY-MM-DD`
 
 ## Language Support
 
