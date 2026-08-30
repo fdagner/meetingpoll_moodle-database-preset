@@ -1,0 +1,44 @@
+.tf-best { background-color: #cfe2ff; }
+.tf-list-table th, .tf-list-table td { white-space: nowrap; }
+.tf-add-table td, .tf-add-table th { vertical-align: middle; }
+.tf-summary td { border-top: 2px solid #adb5bd; }
+.tf-actions-cell a { margin-left: .35rem; }
+.tf-actions-cell a:first-child { margin-left: 0; }
+
+/* Hide the underlying checkboxes ourselves instead of relying on Bootstrap's
+   .btn-check, which some Moodle themes don't apply reliably. The visible
+   label (for="...") still toggles the checkbox as normal. */
+.tf-check {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.tf-ical-btn {
+font-size: 1.2rem;
+}
+
+/* Notiz-Spalte: schmale Spalte mit einem Sprechblasen-Button statt direkt
+   angezeigtem Text, damit lange Notizen die Zeilen nicht in die Höhe
+   schieben. Klick öffnet die Notiz in einem Modal (funktioniert - anders
+   als ein Tooltip - auch auf Touch-/Mobilgeräten). */
+.tf-list-table td.tf-note-cell {
+    white-space: nowrap;
+    width: 1%;
+}
+
+.tf-note-btn {
+    border-radius: 50%;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
