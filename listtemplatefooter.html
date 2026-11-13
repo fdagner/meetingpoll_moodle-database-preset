@@ -14,11 +14,11 @@
   const ALL_DAY_LABEL = 'ganztg.';
   const isAllDay = (dateTime) => !dateTime.includes('T');
 
-  // Gleiche Validierung wie im Add-Template: Nur Muster- UND semantisch
-  // gueltige Werte (echtes Kalenderdatum, Uhrzeit 00:00-23:59) werden zu
-  // Spalten. Schuetzt vor Alt-Eintraegen, die vor der verschaeften Pruefung
-  // gespeichert wurden, und vor manipuliertem JSON - sonst koennten z. B.
-  // "2026-02-30T25:00" kaputte Spalten und iCal-Exports erzeugen.
+  // Same validation as the add template: only pattern-valid AND
+  // semantically valid values (real calendar date, time 00:00-23:59)
+  // become columns. Protects against legacy entries stored before the
+  // hardened check, and against manipulated JSON - otherwise e.g.
+  // "2026-02-30T25:00" could create broken columns and iCal exports.
   const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
   const ALL_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -45,7 +45,7 @@
   };
 
   const WEEKDAYS_SHORT = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-  // Wochentag zu einem ISO-Datum (reine Zahlen, keine Zeitzonen-Fallstricke).
+  // Weekday for an ISO date (pure numbers, no timezone pitfalls).
   const weekdayShort = (isoDay) => WEEKDAYS_SHORT[
     new Date(Number(isoDay.slice(0, 4)), Number(isoDay.slice(5, 7)) - 1, Number(isoDay.slice(8, 10))).getDay()
   ];
@@ -80,24 +80,24 @@
     return { userHtml, noteHtml, answers, actionsHtml };
   });
 
-  // ---- E-Mail-Vorlage --------------------------------------------------
-  // Bewusst UNABHAENGIG von vorhandenen Eintraegen: gerade beim allerersten
-  // Aufruf (noch 0 Rueckmeldungen) wird der Einladungstext ja gebraucht, um
-  // ueberhaupt die erste Rueckmeldung zu bekommen. Nur die Tabelle weiter
-  // unten braucht mindestens 1 Eintrag, um sinnvoll zu sein.
-  // Die Links werden aus der aktuellen Seiten-URL abgeleitet, statt einen
-  // festen Wert zu hinterlegen, damit sie auf jeder Moodle-Instanz und bei
-  // jedem Datensatz automatisch stimmen. Moodle erzeugt die eigenen Links
-  // dieser Aktivität mit dem Parameter "d" (bzw. teils "id"); view.php und
-  // edit.php akzeptieren beide denselben Parameter, daher reicht es, den
-  // Dateinamen zu tauschen und alle listen-spezifischen Parameter
-  // (mode/sort/order/page ...) fuer den "Hinzufuegen"-Link zu entfernen.
+  // ---- E-mail template --------------------------------------------------
+  // Deliberately independent of existing entries: right at the very first
+  // visit (still 0 responses) the invitation text is needed to get the
+  // first response in the first place. Only the table further down needs
+  // at least 1 entry to be useful.
+  // The links are derived from the current page URL instead of storing a
+  // fixed value, so they are automatically correct on every Moodle
+  // instance and for every record. Moodle builds its own links for this
+  // activity with the "d" parameter (sometimes "id"); view.php and
+  // edit.php accept the same parameter, so it is enough to swap the file
+  // name and remove all list-specific parameters
+  // (mode/sort/order/page ...) for the "add entry" link.
   const mailTemplateTarget = document.getElementById('meeting-poll-mail-template');
   if (mailTemplateTarget) {
     const overviewUrl = new URL(window.location.href);
-    // Anzeige-Modus/Sortierung sind fuer die Uebersicht selbst erwuenscht,
-    // aber nicht Teil des zu teilenden Links - der Link soll einfach auf die
-    // Listenansicht fuehren.
+    // Display mode/sorting are welcome for the overview itself,
+    // but are not part of the shareable link - the link should simply point
+    // to the list view.
     const overviewLink = overviewUrl.origin + overviewUrl.pathname +
       (overviewUrl.searchParams.has('d') ? `?d=${overviewUrl.searchParams.get('d')}` :
        overviewUrl.searchParams.has('id') ? `?id=${overviewUrl.searchParams.get('id')}` :
@@ -127,8 +127,8 @@
       '</div></div>';
     mailTemplateTarget.classList.remove('d-none');
 
-    // .value statt innerHTML: mailText enthaelt URL-Bestandteile aus
-    // window.location, die so oder so nicht als HTML interpretiert werden.
+    // .value instead of innerHTML: mailText contains URL fragments from
+    // window.location, which must not be interpreted as HTML anyway.
     const mailTextarea = document.getElementById('meeting-poll-mail-textarea');
     if (mailTextarea) mailTextarea.value = mailText;
 
@@ -214,8 +214,8 @@
       const statusKey = entry.answers[dateTime];
       const status = STATUS_INFO.get(statusKey);
       if (status) {
-        // Status als Pill - dieselbe Optik wie die ausgewaehlten Pills im
-        // Add-Formular (siehe .meeting-poll-status in csstemplate.css).
+        // Status as a pill - the same look as the selected pills in the
+        // add form (see .meeting-poll-status in csstemplate.css).
         return `<td class="text-center"><span class="meeting-poll-status meeting-poll-status-${statusKey}" ` +
           `title="${status.ariaLabel}" aria-label="${status.ariaLabel}">${status.symbol}</span></td>`;
       }
@@ -230,7 +230,7 @@
     return `<tr>${nameCell}${noteCell}${answerCells}<td class="meeting-poll-actions-cell">${entry.actionsHtml}</td></tr>`;
   }).join('');
 
-  // Each count in the "Anzahl" row is a button that opens the iCal modal
+  // Each count in the "count" row is a button that opens the iCal modal
   // for that appointment, so the best-fitting slot can be exported directly.
   const summaryCells = dateList.map((dateTime) => {
     const isBest = maxYesCount > 0 && yesCounts.get(dateTime) === maxYesCount;

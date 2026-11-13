@@ -42,10 +42,10 @@
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   const isLeapYear = (year) => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 
-  // Prüft nicht nur das Schreibmuster (JJJJ-MM-TT[THH:MM]), sondern auch, ob
-  // es sich um ein ECHTES Kalenderdatum mit gültiger Uhrzeit handelt. Ohne
-  // diese semantische Prüfung rutschten z. B. 2026-02-30, 2026-13-01,
-  // ...T25:00 oder ...T12:60 durch.
+  // Checks not only the pattern (JJJJ-MM-TT[THH:MM]) but also whether
+  // it is a REAL calendar date with a valid time. Without
+  // this semantic check, values such as 2026-02-30, 2026-13-01,
+  // ...T25:00 or ...T12:60 used to slip through.
   const isValidDate = (value) => {
     if (!DATE_TIME_PATTERN.test(value) && !ALL_DAY_PATTERN.test(value)) return false;
     const year = Number(value.slice(0, 4));
@@ -73,7 +73,7 @@
   };
 
   const WEEKDAYS_FULL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-  // Wochentag zu einem ISO-Datum (reine Zahlen, keine Zeitzonen-Fallstricke).
+  // Weekday for an ISO date (pure numbers, no timezone pitfalls).
   const weekdayOf = (isoDay) => WEEKDAYS_FULL[
     new Date(Number(isoDay.slice(0, 4)), Number(isoDay.slice(5, 7)) - 1, Number(isoDay.slice(8, 10))).getDay()
   ];
@@ -84,9 +84,9 @@
 
   if (!container) return;
 
-  // Terminlisten-Generator (Modal) ist unabhaengig von den Feldern und
-  // soll auch dann verfuegbar sein, wenn die Feld-Konfiguration fehlerhaft
-  // waere - deshalb frueh registriert. (Funktionsdeklaration: hoisted.)
+  // The meeting list generator (modal) is independent of the fields and
+  // stays available even if the field configuration were broken -
+  // that is why it is registered early. (Function declaration: hoisted.)
   setupListGenerator();
 
   if (!sourceSelect || !jsonInput) {
@@ -174,7 +174,7 @@
 
       // Rendered as checkboxes (not radios): a checkbox's native click
       // behaviour already toggles off when clicked again, which gives us
-      // "einzeln abwählen" for free. Exclusivity between the three status
+      // "deselect individually" for free. Exclusivity between the three status
       // options per row is enforced manually in the change handler below.
       const statusCells = STATUS_OPTIONS.map((status) => {
         const inputId = `meeting-poll-${slotDigits}_${status.key}`;
@@ -215,9 +215,9 @@
     '</thead>' +
     `<tbody>${rows.join('')}</tbody></table>`;
 
-  // Beide Ansichten bedienen dieselben (versteckten) Checkboxen - der
-  // Kalender ist eine reine Praesentationsschicht ueber der bestehenden
-  // Tabellenlogik. JSON-Format und Speicherung bleiben unveraendert.
+  // Both views drive the same (hidden) checkboxes - the
+  // calendar is a pure presentation layer on top of the existing
+  // table logic. JSON format and storage remain unchanged.
   container.innerHTML = warningHtml +
     '<div class="meeting-poll-view-toggle mb-3" role="group" aria-label="Ansicht w\u00e4hlen">' +
     '<button type="button" class="btn btn-sm meeting-poll-view-btn" data-view="calendar" aria-pressed="false">\uD83D\uDCC5 Kalender</button>' +
@@ -297,11 +297,11 @@
     });
   });
 
-  // ---- Kalenderansicht ---------------------------------------------------
-  // Reine Praesentationsschicht ueber denselben Checkboxen wie die Tabelle:
-  // Ein Chip-Klick setzt die Checkboxen und ruft dieselben Sync-Funktionen
-  // auf (cycleStatus -> syncAnswersToHiddenField). Dadurch bleiben
-  // JSON-Format, Speicherung und bestehende Eintraege unveraendert.
+  // ---- Calendar view -----------------------------------------------------
+  // Pure presentation layer over the same checkboxes as the table:
+  // a chip click sets the checkboxes and calls the same sync functions
+  // (cycleStatus -> syncAnswersToHiddenField). This keeps
+  // JSON format, storage and existing entries unchanged.
   const MONTH_NAMES = ['Januar', 'Februar', 'M\u00e4rz', 'April', 'Mai', 'Juni', 'Juli',
     'August', 'September', 'Oktober', 'November', 'Dezember'];
   const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -318,11 +318,11 @@
     return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   })();
 
-  // Monate, in denen Termine liegen (nur diese sind im Kalender erreichbar).
+  // Months that contain appointments (only these are reachable in the calendar).
   const monthKeys = [...new Set(dateList.map((dateTime) => dateTime.slice(0, 7)))].sort();
   let currentMonthIndex = 0;
 
-  // Fuer jeden Termin seine drei (versteckten) Checkboxen merken.
+  // Remember the three (hidden) checkboxes per appointment.
   const statusBoxes = new Map();
   for (const checkbox of checkboxes) {
     if (!statusBoxes.has(checkbox.dataset.datetime)) statusBoxes.set(checkbox.dataset.datetime, []);
@@ -344,9 +344,9 @@
     return `${formatDay(chipDay(dateTime))}, ${time} - Status: ${statusLabel}. Klick \u00e4ndert den Status.`;
   };
 
-  // Chip-Visuals aus dem tatsaechlichen Checkbox-Zustand neu aufbauen -
-  // so sind Chips immer aktuell, egal ob in Kalender- oder Tabellenansicht
-  // geaendert wurde.
+  // Rebuild chip visuals from the actual checkbox state -
+  // this keeps chips current regardless of whether the change happened
+  // in the calendar or the table view.
   const updateChips = () => {
     container.querySelectorAll('.meeting-poll-chip').forEach((chip) => {
       const dateTime = chip.dataset.datetime;
@@ -358,7 +358,7 @@
     });
   };
 
-  // Offen -> Kann -> Vielleicht -> Kann nicht -> offen.
+  // Open -> Can -> Maybe -> Cannot -> open.
   const cycleStatus = (dateTime) => {
     const next = CHIP_ORDER[(CHIP_ORDER.indexOf(getStatusOf(dateTime)) + 1) % CHIP_ORDER.length];
     for (const box of statusBoxes.get(dateTime) || []) {
@@ -441,11 +441,11 @@
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
     if (useCalendar) updateChips(); // Chips koennen in der Tabelle geaendert worden sein.
-    try { sessionStorage.setItem('meetingPollAddView', useCalendar ? 'calendar' : 'table'); } catch (error) { /* z. B. privater Modus */ }
+    try { sessionStorage.setItem('meetingPollAddView', useCalendar ? 'calendar' : 'table'); } catch (error) { /* e.g. private mode */ }
   };
 
-  // Eine zentrale Klick-Behandlung fuer Umschalter, Monatsnavigation,
-  // Chips und "+n weitere" - alle Elemente werden dynamisch gerendert.
+  // One central click handler for view toggles, month navigation,
+  // chips and "+n more" - all elements are rendered dynamically.
   container.addEventListener('click', (event) => {
     const viewBtn = event.target.closest('.meeting-poll-view-btn');
     if (viewBtn) { setView(viewBtn.dataset.view); return; }
@@ -473,14 +473,14 @@
   const form = jsonInput.closest('form');
   if (form) form.addEventListener('submit', syncAnswersToHiddenField);
 
-  // ---- Terminlisten-Generator (Modal im Add-Formular) ---------------------
-  // Der Organisator pflegt die Terminliste als Optionsliste des Menuefelds
-  // "Termine" (eine Zeile pro Termin, Format JJJJ-MM-TT[THH:MM]). Diese
-  // Seite kann das FELD nicht veraendern - aber sie kann die Liste im
-  // Kalender zusammenstellen und in die Zwischenablage kopieren, zum
-  // Einfuegen in die Feld-Optionen. Vollstaendig eigenstaendig gebaut
-  // (eigene Konstanten, eigener Modal-Mechanismus), damit sie unabhaengig
-  // vom Rest des Skripts funktioniert.
+  // ---- Meeting list generator (modal in the add form) ---------------------
+  // The organizer maintains the appointment list as the option list of the
+  // "events" menu field (one line per appointment, format JJJJ-MM-TT[THH:MM]).
+  // This page cannot change the FIELD - but it can assemble the list in the
+  // calendar and copy it to the clipboard, ready to be pasted into the
+  // field options. Built fully self-contained
+  // (own constants, own modal mechanism) so that it works independently
+  // from the rest of the script.
   function setupListGenerator() {
     const openBtn = document.getElementById('meeting-poll-listgen-open');
     if (!openBtn) return;
@@ -499,7 +499,7 @@
         '<div class="modal-content">' +
         '<div class="modal-header">' +
         '<h5 class="modal-title" id="meeting-poll-lg-title"><i class="fa-regular fa-calendar-plus me-2" aria-hidden="true"></i>Terminliste erstellen</h5>' +
-        // Eigener Close-Button statt .btn-close (Bootstrap-4-kompatibel).
+        // Own close button instead of .btn-close (Bootstrap 4 compatible).
         '<button type="button" class="meeting-poll-lg-close" data-meeting-poll-lg-dismiss aria-label="Schlie\u00dfen">\u00d7</button>' +
         '</div>' +
         '<div class="modal-body">' +
@@ -579,7 +579,7 @@
 
     const fmtDay = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 
-    // Modal ein-/ausblenden: Bootstrap-CSS ohne JS-Bundle (wie iCal-Modal).
+    // Show/hide modal: Bootstrap CSS without the JS bundle (like the iCal modal).
     let backdropEl = null;
     const openModal = () => {
       if (!backdropEl) {
@@ -620,7 +620,7 @@
       }
       for (let d = 1; d <= daysInMonth; d++) {
         const iso = toIso(viewYear, viewMonth, d);
-        // Serie/Ganztägig: Mehrfachauswahl - Einzeln: genau ein Tag.
+        // Series/all-day: multi-select - Individual: exactly one day.
         const picked = mode === 'einzeln' ? iso === pickedDay : selectedDays.has(iso);
         const todayClass = iso === todayIso ? ' meeting-poll-cal-today' : '';
         cells += `<button type="button" class="meeting-poll-cal-cell meeting-poll-cal-pick${picked ? ' meeting-poll-cal-picked' : ''}${todayClass}" data-day="${iso}" ` +
@@ -672,7 +672,7 @@
       document.getElementById('meeting-poll-lg-preview').value = lines.join('\n');
       document.getElementById('meeting-poll-lg-copy').disabled = lines.length === 0;
 
-      // Kontexthinweise + Button-Zustaende je Modus.
+      // Context hints + button states per mode.
       const serieAllday = document.getElementById('meeting-poll-lg-serie-allday').checked;
       document.getElementById('meeting-poll-lg-serie-hint').textContent = selectedDays.size === 0
         ? 'Erst Tage anklicken.'
@@ -691,7 +691,7 @@
 
     const setMode = (next) => {
       mode = next;
-      // Auswahl zuruecksetzen - verhindert Missverständnisse beim Wechsel.
+      // Reset the selection - avoids confusion when switching modes.
       selectedDays.clear();
       pickedDay = null;
       document.getElementById('meeting-poll-lg-panel-serie').classList.toggle('d-none', mode !== 'serie');
@@ -711,14 +711,14 @@
 
     const fallbackCopy = (textarea) => {
       textarea.select();
-      try { document.execCommand('copy'); } catch (error) { /* Clipboard blockiert - Vorschau bleibt manuell kopierbar */ }
+      try { document.execCommand('copy'); } catch (error) { /* clipboard blocked - preview stays manually copyable */ }
     };
 
-    // Alles Modal-Inhalt ist dynamisch -> eine zentrale Klick-Behandlung.
+    // All modal content is dynamic -> one central click handler.
     modalEl.addEventListener('click', (event) => {
       if (event.target.closest('[data-meeting-poll-lg-dismiss]')) { closeModal(); return; }
 
-      // Modus-Umschalter (Serie <-> Einzeln).
+      // Mode switch (series <-> individual).
       const modeSwitch = event.target.closest('.meeting-poll-lg-mode');
       if (modeSwitch) { setMode(modeSwitch.dataset.mode); return; }
 
@@ -726,7 +726,7 @@
       if (dayBtn) {
         const iso = dayBtn.dataset.day;
         if (mode === 'einzeln') {
-          // Einfachauswahl: Klick waehlt den Tag, erneuter Klick hebt ab.
+          // Single selection: click selects the day, clicking again deselects.
           pickedDay = (pickedDay === iso) ? null : iso;
         } else if (selectedDays.has(iso)) {
           selectedDays.delete(iso);
@@ -746,7 +746,7 @@
         return;
       }
 
-      // Serie: Uhrzeit-Chip entfernen (nur aus dem Chip-Bereich der Serie).
+      // Series: remove a time chip (only from the series chip area).
       const serieChipX = event.target.closest('#meeting-poll-lg-serie-chips .meeting-poll-lg-chip-x');
       if (serieChipX) {
         serieTimes.delete(serieChipX.dataset.time);
@@ -754,7 +754,7 @@
         return;
       }
 
-      // Termin aus der fertigen Liste entfernen.
+      // Remove an appointment from the final list.
       const lineX = event.target.closest('.meeting-poll-lg-line .meeting-poll-lg-chip-x');
       if (lineX) {
         list.delete(lineX.dataset.line);
@@ -762,7 +762,7 @@
         return;
       }
 
-      // Serie: Uhrzeit-Chip aufbauen (wird beim Uebernehmen angewendet).
+      // Series: build a time chip (applied when the selection is committed).
       if (event.target.closest('#meeting-poll-lg-add')) {
         const input = document.getElementById('meeting-poll-lg-time');
         if (input.value) serieTimes.add(input.value);
@@ -770,7 +770,7 @@
         return;
       }
 
-      // Serie: Zeitfenster in gleichmaessige Uhrzeiten teilen.
+      // Series: split a time window into evenly spaced times.
       if (event.target.closest('#meeting-poll-lg-range')) {
         const start = document.getElementById('meeting-poll-lg-start').value;
         const end = document.getElementById('meeting-poll-lg-end').value;
@@ -789,8 +789,8 @@
         return;
       }
 
-      // Serie: Auswahl in die Liste uebernehmen (Tage x Uhrzeiten oder
-      // ganztägig -> nur Datumszeilen), danach Auswahl freigeben.
+      // Series: commit the selection to the list (days x times or
+      // all-day -> date-only lines), then release the selection.
       if (event.target.closest('#meeting-poll-lg-serie-apply')) {
         const allday = document.getElementById('meeting-poll-lg-serie-allday').checked;
         if (allday) {
@@ -805,7 +805,7 @@
         return;
       }
 
-      // Einzeln: Uhrzeit zum gewaehlten Tag in die Liste.
+      // Individual: add the time for the selected day to the list.
       if (event.target.closest('#meeting-poll-lg-einzeln-add')) {
         const input = document.getElementById('meeting-poll-lg-einzeln-time');
         if (pickedDay && input.value) list.add(`${pickedDay}T${input.value}`);
@@ -813,7 +813,7 @@
         return;
       }
 
-      // Einzeln: gewaehlten Tag als ganztägigen Termin übernehmen.
+      // Individual: commit the selected day as an all-day appointment.
       if (event.target.closest('#meeting-poll-lg-einzeln-allday-add')) {
         if (pickedDay) list.add(pickedDay);
         renderAll();
@@ -851,8 +851,8 @@
       }
     });
 
-    // Ganztägig-Checkboxen: Serie blendet die Uhrzeit-Sektion aus,
-    // Einzeln tauscht die Uhrzeit-Zeile gegen den Allday-Button.
+    // All-day checkboxes: series hides the time section,
+    // individual swaps the time row for the all-day button.
     modalEl.addEventListener('change', (event) => {
       if (event.target.id === 'meeting-poll-lg-serie-allday') {
         document.getElementById('meeting-poll-lg-serie-timesection').classList.toggle('d-none', event.target.checked);
@@ -876,7 +876,7 @@
   renderCalendar();
 
   let initialView = 'calendar';
-  try { initialView = sessionStorage.getItem('meetingPollAddView') || 'calendar'; } catch (viewError) { /* z. B. privater Modus */ }
+  try { initialView = sessionStorage.getItem('meetingPollAddView') || 'calendar'; } catch (viewError) { /* e.g. private mode */ }
   setView(initialView);
 })();
 </script>

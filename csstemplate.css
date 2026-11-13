@@ -16,19 +16,19 @@
    ===================================================================== */
 
 :root {
-    /* Status-Pastelle: gleiche Helligkeit, gedämpfte Sättigung */
+    /* Status pastels: identical lightness, muted saturation */
     --meeting-poll-yes-tint: #ddf3e8;    --meeting-poll-yes-ink: #1b6b47;   --meeting-poll-yes-border: #b9e2cd;
     --meeting-poll-maybe-tint: #fdf3d9;  --meeting-poll-maybe-ink: #8a6116; --meeting-poll-maybe-border: #f0dfae;
     --meeting-poll-no-tint: #fde7e7;     --meeting-poll-no-ink: #a63a3a;    --meeting-poll-no-border: #f5c6c6;
 
-    /* Ein blauer Akzent (keine Statusbedeutung) */
-    --meeting-poll-accent: #2563eb;        /* Füllung mit weißer Schrift, AA */
-    --meeting-poll-accent-soft: #93c5fd;   /* dekorative Kanten/Ringe */
-    --meeting-poll-accent-tint: #eaf3fe;   /* Highlight-Flächen */
-    --meeting-poll-accent-ink: #1d4ed8;    /* Text auf Tint */
+    /* One blue accent (no status meaning) */
+    --meeting-poll-accent: #2563eb;        /* Fill with white text, AA */
+    --meeting-poll-accent-soft: #93c5fd;   /* decorative edges/rings */
+    --meeting-poll-accent-tint: #eaf3fe;   /* highlight surfaces */
+    --meeting-poll-accent-ink: #1d4ed8;    /* text on tint */
     --meeting-poll-accent-border: #c3ddf8;
 
-    /* Helles Slate-Chrom */
+    /* Light slate chrome */
     --meeting-poll-line: #edf1f6;
     --meeting-poll-card-border: #e6eaf0;
     --meeting-poll-head-bg: #f7f9fb;
@@ -40,7 +40,7 @@
     --meeting-poll-muted-ink: #64748b;
 }
 
-/* ---- Karten: hauchdünne Akzentkante, sehr weicher Schatten ---- */
+/* ---- Cards: thin accent edge, very soft shadow ---- */
 .meeting-poll-list-wrap,
 .meeting-poll-single,
 #meeting-poll-add-table {
@@ -65,7 +65,7 @@
     gap: .55rem;
 }
 
-/* Kleiner Akzent vor der Überschrift - dezent statt knallig */
+/* Small accent in front of the heading - subtle instead of loud */
 .meeting-poll-list-wrap h3::before,
 .meeting-poll-add h3::before {
     content: '';
@@ -82,7 +82,7 @@
     box-shadow: none;
 }
 
-/* Notiz-Feld als eigenes weiches Panel (Add-Formular + Einzelansicht) */
+/* Note field as its own soft panel (add form + single view) */
 .meeting-poll-add .added_field,
 .meeting-poll-single .added_field { margin-top: 1.25rem; }
 
@@ -128,7 +128,7 @@
 
 .meeting-poll-single-actions { flex: none; }
 
-/* ---- Wochentag + Datum in Tag-Spalten und Tabellenköpfen ---- */
+/* ---- Weekday + date in day columns and table headers ---- */
 .meeting-poll-day-name {
     font-size: .78rem;
     font-weight: 600;
@@ -170,7 +170,7 @@
     vertical-align: middle;
 }
 
-/* Helle Kopfzeile: ruhig, gut lesbar (Kontrast 7:1) */
+/* Light header row: calm, readable (contrast 7:1) */
 .meeting-poll-add-table thead th,
 .meeting-poll-list-table thead th,
 .meeting-poll-single-table thead th {
@@ -181,7 +181,7 @@
     border-bottom: 0;
 }
 
-/* Tag-Zeile etwas kräftiger als die Uhrzeit-Zeile */
+/* Day row slightly bolder than the time row */
 .meeting-poll-add-table thead tr:first-child th,
 .meeting-poll-list-table thead tr:first-child th {
     color: var(--meeting-poll-ink-strong);
@@ -191,7 +191,7 @@
 
 .meeting-poll-list-table th, .meeting-poll-list-table td { white-space: nowrap; }
 
-/* Zebra-Streifen: sehr dezent */
+/* Zebra stripes: very subtle */
 .meeting-poll-list-table tbody tr:nth-child(even) td,
 .meeting-poll-single-table tbody tr:nth-child(even) td,
 .meeting-poll-add-table tbody tr:nth-child(even) td {
@@ -239,7 +239,7 @@
     box-shadow: 0 0 0 3px rgba(166, 58, 58, .12);
 }
 
-/* Bester Termin: blauer Akzent-Tint (vorher Gold - brach das Konzept) */
+/* Best appointment: blue accent tint (previously gold - clashed with the concept) */
 .meeting-poll-list-table th.meeting-poll-best,
 .meeting-poll-list-table td.meeting-poll-best {
     background: var(--meeting-poll-accent-tint);
@@ -254,7 +254,7 @@
     color: var(--meeting-poll-accent-ink);
 }
 
-/* ---- Zusammenfassungszeile (Anzahl): hell und ruhig ---- */
+/* ---- Summary row (count): light and calm ---- */
 .meeting-poll-list-table tbody tr.meeting-poll-summary td {
     background: var(--meeting-poll-head-bg);
     border-top: 2px solid var(--meeting-poll-card-border);
@@ -262,7 +262,7 @@
     font-weight: 600;
 }
 
-/* ---- Klebende Teilnehmer-Spalte ---- */
+/* ---- Sticky participant column ---- */
 .meeting-poll-list-table thead th:first-child,
 .meeting-poll-list-table tbody td:first-child {
     position: sticky;
@@ -285,12 +285,12 @@
     background: var(--meeting-poll-hover);
 }
 
-/* ---- Aktionen-Spalte (Moodle-Action-Links) ---- */
+/* ---- Actions column (Moodle action links) ---- */
 .meeting-poll-actions-cell a { margin-left: .35rem; }
 .meeting-poll-actions-cell a:first-child { margin-left: 0; }
 
-/* ---- Status-Pills im Add-Formular ---- */
-/* Checkboxen selbst verstecken statt .btn-check (Theme-abhängig). */
+/* ---- Status pills in the add form ---- */
+/* Hide the checkboxes ourselves instead of .btn-check (theme-dependent). */
 .meeting-poll-check {
     position: absolute;
     width: 1px;
@@ -349,9 +349,9 @@
     border-color: var(--meeting-poll-no-ink);
 }
 
-/* Ausgewählter Status: bewusst EIGENES Styling statt Bootstrap-
-   Abhängigkeit (.btn-check:checked + .btn-outline-*). Pastell-Füllung +
-   dunkle Schrift + weicher Ring - hell und klar statt Blockfarbe. */
+/* Selected state: deliberately OWN styling instead of Bootstrap
+   dependency (.btn-check:checked + .btn-outline-*). Pastel fill +
+   dark text + soft ring - light and clear instead of solid color. */
 .meeting-poll-add .meeting-poll-check:checked + .btn-outline-success,
 .meeting-poll-add .meeting-poll-check:checked + .btn-outline-success:hover {
     background: var(--meeting-poll-yes-tint);
@@ -376,7 +376,7 @@
     box-shadow: 0 0 0 3px rgba(166, 58, 58, .12);
 }
 
-/* ---- Spalten-Buttons "Alle ✓ / ? / ✗" ---- */
+/* ---- Column buttons "All ✓ / ? / ✗" ---- */
 .meeting-poll-col-btn {
     border-radius: 999px;
     font-weight: 700;
@@ -437,7 +437,7 @@
     color: var(--meeting-poll-accent-ink);
 }
 
-/* ---- Barrierefreiheit: sichtbare Fokusringe ---- */
+/* ---- Accessibility: visible focus rings ---- */
 .meeting-poll-add .meeting-poll-check:focus-visible + label,
 .meeting-poll-col-btn:focus-visible,
 .meeting-poll-note-btn:focus-visible,
@@ -446,7 +446,7 @@
     outline-offset: 2px;
 }
 
-/* ---- Modals (iCal-Export, Notiz): weiche Ränder + Schatten ---- */
+/* ---- Modals (iCal export, note): soft edges + shadow ---- */
 #meeting-poll-ical-modal .modal-content,
 #meeting-poll-note-modal .modal-content {
     border: 1px solid var(--meeting-poll-card-border);
@@ -461,7 +461,7 @@
    dieselbe Status-Farbzuordnung wie Tabellen und Pills.
    ===================================================================== */
 
-/* ---- Ansichtsumschalter (Kalender ⇄ Tabelle/Liste) ---- */
+/* ---- View toggle (calendar ⇄ table/list) ---- */
 .meeting-poll-view-toggle {
     display: inline-flex;
     gap: .4rem;
@@ -489,7 +489,7 @@
     color: #ffffff;
 }
 
-/* ---- Kalender-Rahmen und Kopf ---- */
+/* ---- Calendar frame and header ---- */
 .meeting-poll-cal {
     border: 1px solid var(--meeting-poll-line);
     border-radius: 14px;
@@ -542,7 +542,7 @@
     padding: .15rem 0;
 }
 
-/* ---- Tageszellen: weiche Rundung, viel Weißraum ---- */
+/* ---- Day cells: soft rounding, plenty of white space ---- */
 .meeting-poll-cal-cell {
     min-height: 92px;
     border: 1px solid var(--meeting-poll-line);
@@ -571,14 +571,14 @@
 
 .meeting-poll-cal-blank .meeting-poll-cal-daynum { color: var(--meeting-poll-muted-ink); }
 
-/* Heute: blauer Ring statt greller Markierung */
+/* Today: blue ring instead of a loud marker */
 .meeting-poll-cal-today {
     box-shadow: inset 0 0 0 2px var(--meeting-poll-accent-soft);
 }
 
 .meeting-poll-cal-today .meeting-poll-cal-daynum { color: var(--meeting-poll-accent-ink); }
 
-/* Einzelansicht: klickbare Tageszelle */
+/* Single view: clickable day cell */
 .meeting-poll-cal-day { cursor: pointer; }
 
 .meeting-poll-cal-day:hover {
@@ -664,7 +664,7 @@
     color: var(--meeting-poll-muted-ink);
 }
 
-/* ---- Mehr als 3 Termine pro Tag: Aufklappen in der Zelle ---- */
+/* ---- More than 3 appointments per day: expand within the cell ---- */
 .meeting-poll-chip-extra,
 .meeting-poll-badge-extra { display: none; }
 
@@ -690,7 +690,7 @@
 .meeting-poll-chip-more:hover,
 .meeting-poll-badge-more:hover { text-decoration: underline; }
 
-/* ---- Detail-Panel der Einzelansicht: Pastell-Pills wie überall ---- */
+/* ---- Single-view detail panel: pastel pills like everywhere else ---- */
 .meeting-poll-daypanel {
     border: 1px solid var(--meeting-poll-line);
     border-radius: 12px;
@@ -751,7 +751,7 @@
 .meeting-poll-legend-no    { background: var(--meeting-poll-no-tint);    color: var(--meeting-poll-no-ink); }
 .meeting-poll-legend-open  { background: var(--meeting-poll-hover);      color: var(--meeting-poll-ink); }
 
-/* ---- Fokusringe für alle neuen Bedienelemente ---- */
+/* ---- Focus rings for all new controls ---- */
 .meeting-poll-chip:focus-visible,
 .meeting-poll-cal-nav:focus-visible,
 .meeting-poll-chip-more:focus-visible,
@@ -794,7 +794,7 @@
     color: var(--meeting-poll-accent-ink);
 }
 
-/* Picker-Kalender: flachere, klickbare Tageszellen */
+/* Picker calendar: flatter, clickable day cells */
 .meeting-poll-cal-pick {
     min-height: 44px;
     text-align: center;
@@ -818,7 +818,7 @@
     box-shadow: inset 0 0 0 1px var(--meeting-poll-accent);
 }
 
-/* Modal-Innenleben */
+/* Modal internals */
 .meeting-poll-lg-label {
     font-size: .82rem;
     font-weight: 700;
@@ -829,7 +829,7 @@
 .meeting-poll-lg-row {
     display: flex;
     align-items: center;
-    gap: .5rem; /* CSS-Feature, kein Bootstrap-Utility */
+    gap: .5rem; /* CSS feature, not a Bootstrap utility */
 }
 
 .meeting-poll-lg-row .form-control,
@@ -880,7 +880,7 @@
     font-weight: 600;
 }
 
-/* ---- Modus-Umschalter (Serie / Einzeln) ---- */
+/* ---- Mode switch (series / individual) ---- */
 .meeting-poll-lg-modebar {
     display: inline-flex;
     gap: .35rem;
@@ -911,7 +911,7 @@
     color: #ffffff;
 }
 
-/* Apply-/Aktionsbuttons der Panels */
+/* Apply/action buttons of the panels */
 .meeting-poll-lg-apply {
     margin-top: .5rem;
     font-weight: 700;
@@ -922,7 +922,7 @@
     cursor: not-allowed;
 }
 
-/* Terminlisten-Badge + Listen-Chips */
+/* Meeting list badge + list chips */
 .meeting-poll-lg-count-badge {
     display: inline-block;
     background: var(--meeting-poll-accent-tint);

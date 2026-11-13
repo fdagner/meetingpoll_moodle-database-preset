@@ -28,8 +28,8 @@
 
   const ALL_DAY_LABEL = 'ganzt\u00e4gig';
 
-  // Gleiche Validierung wie in Add-/List-Template: Nur Muster- und semantisch
-  // gueltige Werte (echtes Kalenderdatum, Uhrzeit 00:00-23:59) werden angezeigt.
+  // Same validation as add/list template: only pattern- and semantically
+  // valid values (real calendar date, time 00:00-23:59) are displayed.
   const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
   const ALL_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -56,7 +56,7 @@
   };
 
   const WEEKDAYS_FULL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-  // Wochentag zu einem ISO-Datum (reine Zahlen, keine Zeitzonen-Fallstricke).
+  // Weekday for an ISO date (pure numbers, no timezone pitfalls).
   const weekdayOf = (isoDay) => WEEKDAYS_FULL[
     new Date(Number(isoDay.slice(0, 4)), Number(isoDay.slice(5, 7)) - 1, Number(isoDay.slice(8, 10))).getDay()
   ];
@@ -73,8 +73,8 @@
   }
 
   const dateList = Object.keys(answers)
-    // Nur echte Kalenderdaten mit gueltiger Uhrzeit anzeigen (gleiche Pruefung
-    // wie in Add-/List-Template) - verhindert kaputte Zeilen durch Alt-Eintraege.
+    // Only show real calendar dates with a valid time (same check
+    // as add/list template) - prevents broken rows from legacy entries.
     .filter(isValidDate)
     .sort();
   if (dateList.length === 0) {
@@ -87,7 +87,7 @@
     const timeLabel = time ? time : `<span class="fst-italic">${ALL_DAY_LABEL}</span>`;
     const statusKey = answers[dateTime];
     const status = STATUS_INFO.get(statusKey);
-    // Status als Pill - dieselbe Optik wie im Add-Formular.
+    // Status as a pill - the same look as in the add form.
     const answerCell = status
       ? `<td class="text-center"><span class="meeting-poll-status meeting-poll-status-${statusKey}" ` +
         `title="${status.ariaLabel}" aria-label="${status.ariaLabel}">${status.symbol}</span></td>`
@@ -101,10 +101,10 @@
     '<thead><tr><th>Tag</th><th>Uhrzeit</th><th>Antwort</th></tr></thead>' +
     `<tbody>${rows}</tbody></table>`;
 
-  // ---- Kalenderansicht (nur lesend) --------------------------------------
-  // gleiche Praesentationsschicht-Idee wie im Add-Template, aber ohne
-  // Statuswechsel: Badges zeigen die Antwort, Klick auf einen Tag oeffnet
-  // ein Detail-Panel unter dem Kalender.
+  // ---- Calendar view (read-only) -----------------------------------------
+  // same presentation-layer idea as the add template, but without
+  // status toggling: badges show the answer, clicking a day opens
+  // a detail panel below the calendar.
   const MONTH_NAMES = ['Januar', 'Februar', 'M\u00e4rz', 'April', 'Mai', 'Juni', 'Juli',
     'August', 'September', 'Oktober', 'November', 'Dezember'];
   const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -172,8 +172,8 @@
           `+${slots.length - MAX_VISIBLE_BADGES} weitere</button>`
         : '';
       const selectedClass = iso === selectedDay ? ' meeting-poll-cal-selected' : '';
-      // bewusst ein fokussierbares div statt <button>: Buttons duerfen nicht
-      // ineinander verschachtelt sein ("+n weitere" ist selbst ein Button).
+      // deliberately a focusable div instead of <button>: buttons must not
+      // be nested ("+n more" is a button itself).
       cells += `<div class="meeting-poll-cal-cell meeting-poll-cal-day${todayClass}${selectedClass}" data-day="${iso}" ` +
         `role="button" tabindex="0" aria-label="Antworten am ${formatDay(iso)} anzeigen">` +
         `<div class="meeting-poll-cal-daynum">${day}</div>${badges}${moreBtn}</div>`;
@@ -225,7 +225,7 @@
       button.classList.toggle('active', isActive);
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
-    try { sessionStorage.setItem('meetingPollSingleView', useCalendar ? 'calendar' : 'table'); } catch (error) { /* z. B. privater Modus */ }
+    try { sessionStorage.setItem('meetingPollSingleView', useCalendar ? 'calendar' : 'table'); } catch (error) { /* e.g. private mode */ }
   };
 
   target.addEventListener('click', (event) => {
@@ -257,7 +257,7 @@
     }
   });
 
-  // Tastaturbedienung der Tageszellen (role="button", tabindex="0").
+  // Keyboard support for day cells (role="button", tabindex="0").
   target.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     const dayEl = event.target.closest('.meeting-poll-cal-day');
@@ -279,7 +279,7 @@
   renderCalendar();
   renderDayPanel();
 
-  // Notiz-Panel nur zeigen, wenn auch eine Notiz vorhanden ist.
+  // Only show the note panel if a note actually exists.
   const noteEl = document.getElementById('meeting-poll-single-note');
   if (noteEl) {
     const noteValue = noteEl.querySelector('.meeting-poll-note-value');
@@ -287,7 +287,7 @@
   }
 
   let initialView = 'calendar';
-  try { initialView = sessionStorage.getItem('meetingPollSingleView') || 'calendar'; } catch (viewError) { /* z. B. privater Modus */ }
+  try { initialView = sessionStorage.getItem('meetingPollSingleView') || 'calendar'; } catch (viewError) { /* e.g. private mode */ }
   setView(initialView);
 })();
 </script>
