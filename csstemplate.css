@@ -1,0 +1,974 @@
+/* =====================================================================
+   Terminfinder – Light & Soft
+   Farbkonzept (bewusst reduziert und stimmig):
+   - Chrom/Struktur: kühle, helle Slate-Grautöne (Karten, Kopfzeilen,
+     Haarlinien, Zebra) - überall derselbe Ton.
+   - EIN Akzent: sanftes Blau (Kartenkante, aktive Umschalter, "bester
+     Termin", Fokusringe). Blau hat keine Statusbedeutung.
+   - Drei gleichwertige PASTELL-Statusfarben (Tint-Fläche + dunkle
+     Schrift statt satter Blockfarben): Mint/Amber/Rosé mit identischer
+     Helligkeit -> wirken als Familie, nicht als Ampel-Block.
+   - Kein Navy-Band, kein Gold: das war der Kontrastbruch.
+   Alle Text-/Flächen-Kombinationen erfüllen WCAG-AA (>= 4,5:1), die
+   gedimmten Tage ohne Termin sind bewusst dekorativ.
+   Technisch wie bisher: keine Bootstrap-Variablen, Tabellen mit
+   eigenen Klassen, damit jede Moodle-/Bootstrap-Version gleich aussieht.
+   ===================================================================== */
+
+:root {
+    /* Status-Pastelle: gleiche Helligkeit, gedämpfte Sättigung */
+    --meeting-poll-yes-tint: #ddf3e8;    --meeting-poll-yes-ink: #1b6b47;   --meeting-poll-yes-border: #b9e2cd;
+    --meeting-poll-maybe-tint: #fdf3d9;  --meeting-poll-maybe-ink: #8a6116; --meeting-poll-maybe-border: #f0dfae;
+    --meeting-poll-no-tint: #fde7e7;     --meeting-poll-no-ink: #a63a3a;    --meeting-poll-no-border: #f5c6c6;
+
+    /* Ein blauer Akzent (keine Statusbedeutung) */
+    --meeting-poll-accent: #2563eb;        /* Füllung mit weißer Schrift, AA */
+    --meeting-poll-accent-soft: #93c5fd;   /* dekorative Kanten/Ringe */
+    --meeting-poll-accent-tint: #eaf3fe;   /* Highlight-Flächen */
+    --meeting-poll-accent-ink: #1d4ed8;    /* Text auf Tint */
+    --meeting-poll-accent-border: #c3ddf8;
+
+    /* Helles Slate-Chrom */
+    --meeting-poll-line: #edf1f6;
+    --meeting-poll-card-border: #e6eaf0;
+    --meeting-poll-head-bg: #f7f9fb;
+    --meeting-poll-head-ink: #475569;
+    --meeting-poll-zebra: #fafbfd;
+    --meeting-poll-hover: #f1f5f9;
+    --meeting-poll-ink: #334155;
+    --meeting-poll-ink-strong: #1e293b;
+    --meeting-poll-muted-ink: #64748b;
+}
+
+/* ---- Karten: hauchdünne Akzentkante, sehr weicher Schatten ---- */
+.meeting-poll-list-wrap,
+.meeting-poll-single,
+#meeting-poll-add-table {
+    background: #ffffff;
+    border: 1px solid var(--meeting-poll-card-border);
+    border-top: 3px solid var(--meeting-poll-accent-soft);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 6px 18px rgba(15, 23, 42, .04);
+}
+
+.meeting-poll-list-wrap { padding: 1.25rem 1.5rem 1.5rem; }
+.meeting-poll-single { padding: 1rem 1.25rem 1.25rem; }
+#meeting-poll-add-table { padding: 1rem 1.25rem 1.25rem; }
+
+.meeting-poll-list-wrap h3,
+.meeting-poll-add h3 {
+    color: var(--meeting-poll-ink-strong);
+    font-weight: 700;
+    letter-spacing: -.01em;
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+}
+
+/* Kleiner Akzent vor der Überschrift - dezent statt knallig */
+.meeting-poll-list-wrap h3::before,
+.meeting-poll-add h3::before {
+    content: '';
+    flex: none;
+    width: .45rem;
+    height: 1rem;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--meeting-poll-accent-soft), var(--meeting-poll-accent));
+}
+
+.meeting-poll-list-wrap .card {
+    border-color: var(--meeting-poll-card-border);
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+/* Notiz-Feld als eigenes weiches Panel (Add-Formular + Einzelansicht) */
+.meeting-poll-add .added_field,
+.meeting-poll-single .added_field { margin-top: 1.25rem; }
+
+.meeting-poll-note-panel {
+    background: #ffffff;
+    border: 1px solid var(--meeting-poll-line);
+    border-radius: 14px;
+    padding: .9rem 1.1rem;
+}
+
+.meeting-poll-note-head span {
+    color: var(--meeting-poll-ink-strong);
+    font-weight: 700;
+    font-size: .92rem;
+}
+
+.meeting-poll-note-head i { color: var(--meeting-poll-accent-ink); }
+
+.meeting-poll-note-field input[type="text"],
+.meeting-poll-note-field textarea {
+    width: 100%;
+    border: 1px solid var(--meeting-poll-card-border);
+    border-radius: 10px;
+    padding: .55rem .8rem;
+    font-size: .92rem;
+    color: var(--meeting-poll-ink-strong);
+    background: #ffffff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.meeting-poll-note-field input[type="text"]:focus,
+.meeting-poll-note-field textarea:focus {
+    border-color: var(--meeting-poll-accent-soft);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    outline: none;
+}
+
+.meeting-poll-note-value {
+    font-size: .92rem;
+    color: var(--meeting-poll-ink);
+    overflow-wrap: anywhere;
+}
+
+.meeting-poll-single-actions { flex: none; }
+
+/* ---- Wochentag + Datum in Tag-Spalten und Tabellenköpfen ---- */
+.meeting-poll-day-name {
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--meeting-poll-muted-ink);
+}
+
+.meeting-poll-day-date {
+    font-weight: 700;
+    color: var(--meeting-poll-ink-strong);
+}
+
+.meeting-poll-list-table thead .meeting-poll-th-wd {
+    display: block;
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--meeting-poll-muted-ink);
+}
+
+/* ---- Tabellen: helle Kopfzeile, Zebra, nur horizontale Linien ----
+   border-collapse: separate ist nötig für die klebende Teilnehmer-Spalte. */
+.meeting-poll-add-table,
+.meeting-poll-list-table,
+.meeting-poll-single-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.meeting-poll-add-table { max-width: 680px; }
+
+.meeting-poll-add-table th, .meeting-poll-add-table td,
+.meeting-poll-list-table th, .meeting-poll-list-table td,
+.meeting-poll-single-table th, .meeting-poll-single-table td {
+    border: 0;
+    border-bottom: 1px solid var(--meeting-poll-line);
+    padding: .5rem .7rem;
+    vertical-align: middle;
+}
+
+/* Helle Kopfzeile: ruhig, gut lesbar (Kontrast 7:1) */
+.meeting-poll-add-table thead th,
+.meeting-poll-list-table thead th,
+.meeting-poll-single-table thead th {
+    background: var(--meeting-poll-head-bg);
+    color: var(--meeting-poll-head-ink);
+    font-weight: 600;
+    font-size: .84rem;
+    border-bottom: 0;
+}
+
+/* Tag-Zeile etwas kräftiger als die Uhrzeit-Zeile */
+.meeting-poll-add-table thead tr:first-child th,
+.meeting-poll-list-table thead tr:first-child th {
+    color: var(--meeting-poll-ink-strong);
+    font-weight: 700;
+    border-bottom: 1px solid var(--meeting-poll-line);
+}
+
+.meeting-poll-list-table th, .meeting-poll-list-table td { white-space: nowrap; }
+
+/* Zebra-Streifen: sehr dezent */
+.meeting-poll-list-table tbody tr:nth-child(even) td,
+.meeting-poll-single-table tbody tr:nth-child(even) td,
+.meeting-poll-add-table tbody tr:nth-child(even) td {
+    background: var(--meeting-poll-zebra);
+}
+
+/* Hover: Zeile aufhellen - Status-Pills behalten ihren eigenen Hintergrund;
+   die Summenzeile bleibt in ihrer Farbe. */
+.meeting-poll-list-table tbody tr:not(.meeting-poll-summary):hover td {
+    background: var(--meeting-poll-hover);
+}
+
+/* Status-Pills (Listen-/Einzelansicht): exakt dieselbe Optik wie die
+   ausgewaehlten Pills im Add-Formular - Pastell-Flaeche, dunkle Schrift,
+   Statusrand + weicher Ring. (Frueher: gefaerbte Ganz-Zellen.) */
+.meeting-poll-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .95rem;
+}
+
+.meeting-poll-status-yes {
+    background: var(--meeting-poll-yes-tint);
+    border: 1px solid var(--meeting-poll-yes-ink);
+    color: var(--meeting-poll-yes-ink);
+    box-shadow: 0 0 0 3px rgba(27, 107, 71, .12);
+}
+
+.meeting-poll-status-maybe {
+    background: var(--meeting-poll-maybe-tint);
+    border: 1px solid var(--meeting-poll-maybe-ink);
+    color: var(--meeting-poll-maybe-ink);
+    box-shadow: 0 0 0 3px rgba(138, 97, 22, .12);
+}
+
+.meeting-poll-status-no {
+    background: var(--meeting-poll-no-tint);
+    border: 1px solid var(--meeting-poll-no-ink);
+    color: var(--meeting-poll-no-ink);
+    box-shadow: 0 0 0 3px rgba(166, 58, 58, .12);
+}
+
+/* Bester Termin: blauer Akzent-Tint (vorher Gold - brach das Konzept) */
+.meeting-poll-list-table th.meeting-poll-best,
+.meeting-poll-list-table td.meeting-poll-best {
+    background: var(--meeting-poll-accent-tint);
+    color: var(--meeting-poll-accent-ink);
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px var(--meeting-poll-accent-border);
+}
+
+.meeting-poll-ical-btn {
+    font-size: 1.15rem;
+    line-height: 1;
+    color: var(--meeting-poll-accent-ink);
+}
+
+/* ---- Zusammenfassungszeile (Anzahl): hell und ruhig ---- */
+.meeting-poll-list-table tbody tr.meeting-poll-summary td {
+    background: var(--meeting-poll-head-bg);
+    border-top: 2px solid var(--meeting-poll-card-border);
+    color: var(--meeting-poll-ink);
+    font-weight: 600;
+}
+
+/* ---- Klebende Teilnehmer-Spalte ---- */
+.meeting-poll-list-table thead th:first-child,
+.meeting-poll-list-table tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+}
+
+.meeting-poll-list-table thead th:first-child { background: var(--meeting-poll-head-bg); }
+
+.meeting-poll-list-table tbody td:first-child {
+    background: #ffffff;
+    border-right: 1px solid var(--meeting-poll-line);
+}
+
+.meeting-poll-list-table tbody tr:nth-child(even) td:first-child {
+    background: var(--meeting-poll-zebra);
+}
+
+.meeting-poll-list-table tbody tr:not(.meeting-poll-summary):hover td:first-child {
+    background: var(--meeting-poll-hover);
+}
+
+/* ---- Aktionen-Spalte (Moodle-Action-Links) ---- */
+.meeting-poll-actions-cell a { margin-left: .35rem; }
+.meeting-poll-actions-cell a:first-child { margin-left: 0; }
+
+/* ---- Status-Pills im Add-Formular ---- */
+/* Checkboxen selbst verstecken statt .btn-check (Theme-abhängig). */
+.meeting-poll-check {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.meeting-poll-add-table label.btn {
+    border-radius: 999px;
+    min-width: 2.25rem;
+    height: 2.1rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .95rem;
+    transition: background-color .15s ease, border-color .15s ease,
+                color .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+
+.meeting-poll-add-table label.btn:active { transform: scale(.94); }
+
+.meeting-poll-add-table label.btn-outline-success {
+    color: var(--meeting-poll-yes-ink);
+    background: #fff;
+    border-color: var(--meeting-poll-yes-border);
+}
+.meeting-poll-add-table label.btn-outline-success:hover {
+    background: var(--meeting-poll-yes-tint);
+    border-color: var(--meeting-poll-yes-ink);
+}
+
+.meeting-poll-add-table label.btn-outline-warning {
+    color: var(--meeting-poll-maybe-ink);
+    background: #fff;
+    border-color: var(--meeting-poll-maybe-border);
+}
+.meeting-poll-add-table label.btn-outline-warning:hover {
+    background: var(--meeting-poll-maybe-tint);
+    border-color: var(--meeting-poll-maybe-ink);
+}
+
+.meeting-poll-add-table label.btn-outline-danger {
+    color: var(--meeting-poll-no-ink);
+    background: #fff;
+    border-color: var(--meeting-poll-no-border);
+}
+.meeting-poll-add-table label.btn-outline-danger:hover {
+    background: var(--meeting-poll-no-tint);
+    border-color: var(--meeting-poll-no-ink);
+}
+
+/* Ausgewählter Status: bewusst EIGENES Styling statt Bootstrap-
+   Abhängigkeit (.btn-check:checked + .btn-outline-*). Pastell-Füllung +
+   dunkle Schrift + weicher Ring - hell und klar statt Blockfarbe. */
+.meeting-poll-add .meeting-poll-check:checked + .btn-outline-success,
+.meeting-poll-add .meeting-poll-check:checked + .btn-outline-success:hover {
+    background: var(--meeting-poll-yes-tint);
+    border-color: var(--meeting-poll-yes-ink);
+    color: var(--meeting-poll-yes-ink);
+    box-shadow: 0 0 0 3px rgba(27, 107, 71, .12);
+}
+
+.meeting-poll-add .meeting-poll-check:checked + .btn-outline-warning,
+.meeting-poll-add .meeting-poll-check:checked + .btn-outline-warning:hover {
+    background: var(--meeting-poll-maybe-tint);
+    border-color: var(--meeting-poll-maybe-ink);
+    color: var(--meeting-poll-maybe-ink);
+    box-shadow: 0 0 0 3px rgba(138, 97, 22, .12);
+}
+
+.meeting-poll-add .meeting-poll-check:checked + .btn-outline-danger,
+.meeting-poll-add .meeting-poll-check:checked + .btn-outline-danger:hover {
+    background: var(--meeting-poll-no-tint);
+    border-color: var(--meeting-poll-no-ink);
+    color: var(--meeting-poll-no-ink);
+    box-shadow: 0 0 0 3px rgba(166, 58, 58, .12);
+}
+
+/* ---- Spalten-Buttons "Alle ✓ / ? / ✗" ---- */
+.meeting-poll-col-btn {
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .8rem;
+    padding: .25rem .7rem;
+    background: #ffffff;
+}
+
+.meeting-poll-col-btn.btn-outline-success { color: var(--meeting-poll-yes-ink); border-color: var(--meeting-poll-yes-border); }
+.meeting-poll-col-btn.btn-outline-success:hover,
+.meeting-poll-col-btn.btn-outline-success.active {
+    background: var(--meeting-poll-yes-tint);
+    color: var(--meeting-poll-yes-ink);
+    border-color: var(--meeting-poll-yes-ink);
+}
+
+.meeting-poll-col-btn.btn-outline-warning { color: var(--meeting-poll-maybe-ink); border-color: var(--meeting-poll-maybe-border); }
+.meeting-poll-col-btn.btn-outline-warning:hover,
+.meeting-poll-col-btn.btn-outline-warning.active {
+    background: var(--meeting-poll-maybe-tint);
+    color: var(--meeting-poll-maybe-ink);
+    border-color: var(--meeting-poll-maybe-ink);
+}
+
+.meeting-poll-col-btn.btn-outline-danger { color: var(--meeting-poll-no-ink); border-color: var(--meeting-poll-no-border); }
+.meeting-poll-col-btn.btn-outline-danger:hover,
+.meeting-poll-col-btn.btn-outline-danger.active {
+    background: var(--meeting-poll-no-tint);
+    color: var(--meeting-poll-no-ink);
+    border-color: var(--meeting-poll-no-ink);
+}
+
+/* ---- Notiz-Spalte: runder Sprechblasen-Button (blauer Akzent) ----
+   Klick öffnet die Notiz in einem Modal (funktioniert - anders als ein
+   Tooltip - auch auf Touch-/Mobilgeräten). */
+.meeting-poll-list-table td.meeting-poll-note-cell {
+    white-space: nowrap;
+    width: 1%;
+}
+
+.meeting-poll-note-btn {
+    border-radius: 999px;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--meeting-poll-accent-ink);
+    background: var(--meeting-poll-accent-tint);
+    border-color: var(--meeting-poll-accent-tint);
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.meeting-poll-note-btn:hover {
+    background: #d8e9fc;
+    border-color: #d8e9fc;
+    color: var(--meeting-poll-accent-ink);
+}
+
+/* ---- Barrierefreiheit: sichtbare Fokusringe ---- */
+.meeting-poll-add .meeting-poll-check:focus-visible + label,
+.meeting-poll-col-btn:focus-visible,
+.meeting-poll-note-btn:focus-visible,
+.meeting-poll-ical-btn:focus-visible {
+    outline: 2px solid var(--meeting-poll-accent);
+    outline-offset: 2px;
+}
+
+/* ---- Modals (iCal-Export, Notiz): weiche Ränder + Schatten ---- */
+#meeting-poll-ical-modal .modal-content,
+#meeting-poll-note-modal .modal-content {
+    border: 1px solid var(--meeting-poll-card-border);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .1);
+}
+
+/* =====================================================================
+   Kalenderansicht (Add-Template: auswählbar, Einzelansicht: lesend)
+   Der Kalender ist Praesentationsschicht - Selectionslogik bleibt in
+   den bestehenden Checkboxen/JSON. Chips/Badges/Panel nutzen exakt
+   dieselbe Status-Farbzuordnung wie Tabellen und Pills.
+   ===================================================================== */
+
+/* ---- Ansichtsumschalter (Kalender ⇄ Tabelle/Liste) ---- */
+.meeting-poll-view-toggle {
+    display: inline-flex;
+    gap: .4rem;
+}
+
+.meeting-poll-view-btn {
+    border: 1px solid var(--meeting-poll-card-border);
+    background: #ffffff;
+    color: var(--meeting-poll-muted-ink);
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: .85rem;
+    padding: .3rem .95rem;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.meeting-poll-view-btn:hover:not(.active) {
+    background: var(--meeting-poll-hover);
+    color: var(--meeting-poll-ink);
+}
+
+.meeting-poll-view-btn.active {
+    background: var(--meeting-poll-accent);
+    border-color: var(--meeting-poll-accent);
+    color: #ffffff;
+}
+
+/* ---- Kalender-Rahmen und Kopf ---- */
+.meeting-poll-cal {
+    border: 1px solid var(--meeting-poll-line);
+    border-radius: 14px;
+    padding: 1rem;
+    background: #ffffff;
+    max-width: 880px;
+}
+
+.meeting-poll-cal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .7rem;
+}
+
+.meeting-poll-cal-title {
+    color: var(--meeting-poll-ink-strong);
+    font-weight: 700;
+    font-size: 1.15rem;
+}
+
+.meeting-poll-cal-nav {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    line-height: 1;
+    border: 1px solid var(--meeting-poll-line);
+    background: #ffffff;
+    color: var(--meeting-poll-muted-ink);
+    font-size: 1.2rem;
+    padding: 0;
+}
+
+.meeting-poll-cal-nav:hover:not(:disabled) { background: var(--meeting-poll-hover); color: var(--meeting-poll-ink); }
+.meeting-poll-cal-nav:disabled { opacity: .4; cursor: not-allowed; }
+
+.meeting-poll-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.meeting-poll-cal-weekday {
+    text-align: center;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--meeting-poll-muted-ink);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: .15rem 0;
+}
+
+/* ---- Tageszellen: weiche Rundung, viel Weißraum ---- */
+.meeting-poll-cal-cell {
+    min-height: 92px;
+    border: 1px solid var(--meeting-poll-line);
+    border-radius: 10px;
+    padding: 4px 5px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.meeting-poll-cal-cell.meeting-poll-cal-empty {
+    border-color: transparent;
+    background: transparent;
+}
+
+.meeting-poll-cal-daynum {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--meeting-poll-ink);
+    line-height: 1.3;
+}
+
+.meeting-poll-cal-blank {
+    background: #fbfcfd;
+    border-color: #f3f6f9;
+}
+
+.meeting-poll-cal-blank .meeting-poll-cal-daynum { color: var(--meeting-poll-muted-ink); }
+
+/* Heute: blauer Ring statt greller Markierung */
+.meeting-poll-cal-today {
+    box-shadow: inset 0 0 0 2px var(--meeting-poll-accent-soft);
+}
+
+.meeting-poll-cal-today .meeting-poll-cal-daynum { color: var(--meeting-poll-accent-ink); }
+
+/* Einzelansicht: klickbare Tageszelle */
+.meeting-poll-cal-day { cursor: pointer; }
+
+.meeting-poll-cal-day:hover {
+    border-color: var(--meeting-poll-accent-border);
+    background: var(--meeting-poll-accent-tint);
+}
+
+.meeting-poll-cal-day.meeting-poll-cal-selected {
+    border-color: var(--meeting-poll-accent-soft);
+    box-shadow: inset 0 0 0 2px var(--meeting-poll-accent-soft);
+}
+
+/* ---- Chips (Add: klickbar) und Badges (Einzelansicht: Anzeige) ----
+   Farbzuordnung identisch zu Tabellen-Zellen und Pills: Tint + Ink. */
+.meeting-poll-chip,
+.meeting-poll-badge {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: .3rem;
+    border: 1px solid var(--meeting-poll-line);
+    background: #ffffff;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: .8rem;
+    line-height: 1.6;
+    margin-top: 3px;
+    text-align: left;
+    font-weight: 600;
+    min-width: 0;
+}
+
+.meeting-poll-chip {
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.meeting-poll-chip:hover {
+    border-color: var(--meeting-poll-muted-ink);
+}
+
+.meeting-poll-chip:active { transform: scale(.97); }
+
+.meeting-poll-chip-time,
+.meeting-poll-badge-time {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.meeting-poll-chip-mark,
+.meeting-poll-badge-mark {
+    font-weight: 700;
+    flex: none;
+}
+
+.meeting-poll-chip-yes,
+.meeting-poll-badge-yes {
+    background: var(--meeting-poll-yes-tint);
+    border-color: var(--meeting-poll-yes-border);
+    color: var(--meeting-poll-yes-ink);
+}
+
+.meeting-poll-chip-maybe,
+.meeting-poll-badge-maybe {
+    background: var(--meeting-poll-maybe-tint);
+    border-color: var(--meeting-poll-maybe-border);
+    color: var(--meeting-poll-maybe-ink);
+}
+
+.meeting-poll-chip-no,
+.meeting-poll-badge-no {
+    background: var(--meeting-poll-no-tint);
+    border-color: var(--meeting-poll-no-border);
+    color: var(--meeting-poll-no-ink);
+}
+
+.meeting-poll-chip-open,
+.meeting-poll-badge-open {
+    color: var(--meeting-poll-muted-ink);
+}
+
+/* ---- Mehr als 3 Termine pro Tag: Aufklappen in der Zelle ---- */
+.meeting-poll-chip-extra,
+.meeting-poll-badge-extra { display: none; }
+
+.meeting-poll-cal-expanded .meeting-poll-chip-extra,
+.meeting-poll-cal-expanded .meeting-poll-badge-extra { display: flex; }
+
+.meeting-poll-chip-more,
+.meeting-poll-badge-more {
+    display: block;
+    width: 100%;
+    margin-top: 3px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--meeting-poll-accent-ink);
+    font-family: inherit;
+    font-size: .72rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+}
+
+.meeting-poll-chip-more:hover,
+.meeting-poll-badge-more:hover { text-decoration: underline; }
+
+/* ---- Detail-Panel der Einzelansicht: Pastell-Pills wie überall ---- */
+.meeting-poll-daypanel {
+    border: 1px solid var(--meeting-poll-line);
+    border-radius: 12px;
+    padding: .7rem 1rem;
+    background: #ffffff;
+    max-width: 880px;
+}
+
+.meeting-poll-daypanel-title {
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--meeting-poll-ink-strong);
+    margin-bottom: .3rem;
+}
+
+.meeting-poll-daypanel-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+    padding: .3rem 0;
+    border-top: 1px solid var(--meeting-poll-line);
+    font-size: .85rem;
+}
+
+.meeting-poll-daypanel-time {
+    font-weight: 600;
+    color: var(--meeting-poll-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.meeting-poll-daypanel-status {
+    border-radius: 999px;
+    padding: .08rem .65rem;
+    font-weight: 700;
+    font-size: .78rem;
+}
+
+.meeting-poll-daypanel-yes { background: var(--meeting-poll-yes-tint); color: var(--meeting-poll-yes-ink); }
+.meeting-poll-daypanel-maybe { background: var(--meeting-poll-maybe-tint); color: var(--meeting-poll-maybe-ink); }
+.meeting-poll-daypanel-no { background: var(--meeting-poll-no-tint); color: var(--meeting-poll-no-ink); }
+.meeting-poll-daypanel-open { background: var(--meeting-poll-hover); color: var(--meeting-poll-ink); }
+
+/* ---- Farbiges Status-Legend im Kalender-Hinweis ----
+   Dieselbe Tint+Ink-Zuordnung wie Chips/Zellen/Panel. */
+.meeting-poll-legend {
+    display: inline-block;
+    border-radius: 999px;
+    padding: .05rem .55rem;
+    font-weight: 700;
+    font-size: .82rem;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.meeting-poll-legend-yes   { background: var(--meeting-poll-yes-tint);   color: var(--meeting-poll-yes-ink); }
+.meeting-poll-legend-maybe { background: var(--meeting-poll-maybe-tint); color: var(--meeting-poll-maybe-ink); }
+.meeting-poll-legend-no    { background: var(--meeting-poll-no-tint);    color: var(--meeting-poll-no-ink); }
+.meeting-poll-legend-open  { background: var(--meeting-poll-hover);      color: var(--meeting-poll-ink); }
+
+/* ---- Fokusringe für alle neuen Bedienelemente ---- */
+.meeting-poll-chip:focus-visible,
+.meeting-poll-cal-nav:focus-visible,
+.meeting-poll-chip-more:focus-visible,
+.meeting-poll-badge-more:focus-visible,
+.meeting-poll-cal-day:focus-visible,
+.meeting-poll-view-btn:focus-visible,
+.meeting-poll-listgen-btn:focus-visible,
+.meeting-poll-lg-close:focus-visible,
+.meeting-poll-lg-chip-x:focus-visible,
+.meeting-poll-cal-pick:focus-visible,
+.meeting-poll-lg-mode:focus-visible,
+.meeting-poll-lg-apply:focus-visible {
+    outline: 2px solid var(--meeting-poll-accent);
+    outline-offset: 1px;
+}
+
+/* =====================================================================
+   Terminlisten-Generator (Modal im Add-Formular)
+   Eigenstaendige meeting-poll-lg-* Klassen + Wiederverwendung der Kalender-Optik.
+   Keine Abhaengigkeit von Bootstrap-5-Utilities (gap-*, btn-close,
+   form-switch): laeuft auch auf Moodle mit Bootstrap 4 - dort degradieren
+   Switch/Select nur optisch auf die natives Element.
+   ===================================================================== */
+
+.meeting-poll-listgen-btn {
+    border: 1px solid var(--meeting-poll-accent-border);
+    background: var(--meeting-poll-accent-tint);
+    color: var(--meeting-poll-accent-ink);
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: .82rem;
+    padding: .3rem .9rem;
+    cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+.meeting-poll-listgen-btn:hover {
+    background: #d8e9fc;
+    border-color: var(--meeting-poll-accent-soft);
+    color: var(--meeting-poll-accent-ink);
+}
+
+/* Picker-Kalender: flachere, klickbare Tageszellen */
+.meeting-poll-cal-pick {
+    min-height: 44px;
+    text-align: center;
+    padding: .35rem 0;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: .95rem;
+    color: var(--meeting-poll-ink);
+    font-family: inherit;
+}
+
+.meeting-poll-cal-pick:hover {
+    border-color: var(--meeting-poll-accent-border);
+    background: var(--meeting-poll-accent-tint);
+}
+
+.meeting-poll-cal-pick.meeting-poll-cal-picked {
+    background: var(--meeting-poll-accent-tint);
+    border-color: var(--meeting-poll-accent);
+    color: var(--meeting-poll-accent-ink);
+    box-shadow: inset 0 0 0 1px var(--meeting-poll-accent);
+}
+
+/* Modal-Innenleben */
+.meeting-poll-lg-label {
+    font-size: .82rem;
+    font-weight: 700;
+    color: var(--meeting-poll-ink-strong);
+    margin-bottom: .35rem;
+}
+
+.meeting-poll-lg-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem; /* CSS-Feature, kein Bootstrap-Utility */
+}
+
+.meeting-poll-lg-row .form-control,
+.meeting-poll-lg-row .form-select { flex: 1; min-width: 0; }
+
+.meeting-poll-lg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    border: 1px solid var(--meeting-poll-line);
+    background: #ffffff;
+    border-radius: 999px;
+    padding: .1rem .35rem .1rem .7rem;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--meeting-poll-ink);
+    margin: 0 .25rem .35rem 0;
+}
+
+.meeting-poll-lg-chip-x {
+    border: 0;
+    background: none;
+    color: var(--meeting-poll-muted-ink);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: .95rem;
+    line-height: 1;
+    padding: 0 .3rem;
+}
+
+.meeting-poll-lg-chip-x:hover { color: var(--meeting-poll-no-ink); }
+
+.meeting-poll-lg-close {
+    border: 0;
+    background: none;
+    color: var(--meeting-poll-muted-ink);
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 0 .4rem;
+    cursor: pointer;
+}
+
+.meeting-poll-lg-close:hover { color: var(--meeting-poll-no-ink); }
+
+.meeting-poll-lg-copied {
+    color: #1b6b47;
+    font-size: .85rem;
+    font-weight: 600;
+}
+
+/* ---- Modus-Umschalter (Serie / Einzeln) ---- */
+.meeting-poll-lg-modebar {
+    display: inline-flex;
+    gap: .35rem;
+    margin-bottom: .75rem;
+}
+
+.meeting-poll-lg-mode {
+    border: 1px solid var(--meeting-poll-card-border);
+    background: #ffffff;
+    color: var(--meeting-poll-muted-ink);
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .85rem;
+    padding: .3rem 1rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.meeting-poll-lg-mode:hover:not(.active) {
+    background: var(--meeting-poll-hover);
+    color: var(--meeting-poll-ink);
+}
+
+.meeting-poll-lg-mode.active {
+    background: var(--meeting-poll-accent);
+    border-color: var(--meeting-poll-accent);
+    color: #ffffff;
+}
+
+/* Apply-/Aktionsbuttons der Panels */
+.meeting-poll-lg-apply {
+    margin-top: .5rem;
+    font-weight: 700;
+}
+
+.meeting-poll-lg-apply:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+/* Terminlisten-Badge + Listen-Chips */
+.meeting-poll-lg-count-badge {
+    display: inline-block;
+    background: var(--meeting-poll-accent-tint);
+    color: var(--meeting-poll-accent-ink);
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: .02rem .5rem;
+    vertical-align: 1px;
+}
+
+.meeting-poll-lg-line {
+    background: var(--meeting-poll-accent-tint);
+    border-color: var(--meeting-poll-accent-border);
+    color: var(--meeting-poll-accent-ink);
+}
+
+.meeting-poll-lg-line .meeting-poll-lg-chip-x:hover { color: var(--meeting-poll-accent-ink); }
+
+.meeting-poll-lg-hint {
+    font-size: .78rem;
+    color: var(--meeting-poll-muted-ink);
+}
+
+/* ---- Kalender auf schmalen Screens kompakter (aber gut bedienbar) ---- */
+@media (max-width: 575.98px) {
+    .meeting-poll-cal { padding: .6rem; }
+    .meeting-poll-cal-cell {
+        min-height: 64px;
+        padding: 3px 4px;
+        border-radius: 8px;
+    }
+    .meeting-poll-cal-daynum { font-size: .85rem; }
+    .meeting-poll-chip,
+    .meeting-poll-badge {
+        font-size: .7rem;
+        padding: 1px 5px;
+        margin-top: 2px;
+    }
+    .meeting-poll-chip-more,
+    .meeting-poll-badge-more { font-size: .64rem; margin-top: 2px; }
+    .meeting-poll-cal-nav { width: 2.2rem; height: 2.2rem; font-size: 1.1rem; }
+    .meeting-poll-status {
+        width: 1.6rem;
+        height: 1.6rem;
+        font-size: .85rem;
+        box-shadow: none;
+    }
+}

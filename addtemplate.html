@@ -1,0 +1,882 @@
+<div class="meeting-poll-add mb-3">
+
+<div id="meeting-poll-source" class="d-none">[[events]]</div>
+<div id="meeting-poll-json-source" class="d-none">[[json]]</div>
+
+<h3 class="mb-2">Termine</h3>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <p class="text-muted small mb-0">Die Terminliste wird vom Organisator über das Feld „events" gepflegt.</p>
+    <button type="button" class="meeting-poll-listgen-btn" id="meeting-poll-listgen-open"
+        title="Terminliste im Kalender zusammenstellen und zum Einfügen in das Feld „events“ kopieren">
+        <i class="fa-regular fa-calendar-plus me-1" aria-hidden="true"></i>Terminliste erstellen
+    </button>
+</div>
+
+<div id="meeting-poll-add-table" class="table-responsive"></div>
+
+<div class=" added_field">
+    <div class="meeting-poll-note-panel">
+        <div class="meeting-poll-note-head">
+            <i class="fa-regular fa-comment me-2" aria-hidden="true"></i>
+            <span class="fw-bold">[[note#description]]</span>
+        </div>
+        <div class="meeting-poll-note-field mt-2">[[note]]</div>
+    </div>
+</div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STATUS_OPTIONS = [
+    { key: 'yes', symbol: '\u2713', ariaLabel: 'Kann', cls: 'success' },
+    { key: 'maybe', symbol: '?', ariaLabel: 'Vielleicht', cls: 'warning' },
+    { key: 'no', symbol: '\u2717', ariaLabel: 'Kann nicht', cls: 'danger' }
+  ];
+
+  const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+  const ALL_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+  const ALL_DAY_LABEL = '';
+
+  const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const isLeapYear = (year) => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+
+  // Prüft nicht nur das Schreibmuster (JJJJ-MM-TT[THH:MM]), sondern auch, ob
+  // es sich um ein ECHTES Kalenderdatum mit gültiger Uhrzeit handelt. Ohne
+  // diese semantische Prüfung rutschten z. B. 2026-02-30, 2026-13-01,
+  // ...T25:00 oder ...T12:60 durch.
+  const isValidDate = (value) => {
+    if (!DATE_TIME_PATTERN.test(value) && !ALL_DAY_PATTERN.test(value)) return false;
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(5, 7));
+    const day = Number(value.slice(8, 10));
+    if (month < 1 || month > 12) return false;
+    const maxDay = (month === 2 && isLeapYear(year)) ? 29 : MONTH_DAYS[month - 1];
+    if (day < 1 || day > maxDay) return false;
+    if (value.includes('T')) {
+      const hour = Number(value.slice(11, 13));
+      const minute = Number(value.slice(14, 16));
+      if (hour > 23 || minute > 59) return false;
+    }
+    return true;
+  };
+  const isAllDay = (dateTime) => !dateTime.includes('T');
+
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+  }[ch]));
+
+  const formatDay = (isoDay) => {
+    const [year, month, day] = isoDay.split('-');
+    return `${day}.${month}.${year}`;
+  };
+
+  const WEEKDAYS_FULL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+  // Wochentag zu einem ISO-Datum (reine Zahlen, keine Zeitzonen-Fallstricke).
+  const weekdayOf = (isoDay) => WEEKDAYS_FULL[
+    new Date(Number(isoDay.slice(0, 4)), Number(isoDay.slice(5, 7)) - 1, Number(isoDay.slice(8, 10))).getDay()
+  ];
+
+  const container = document.getElementById('meeting-poll-add-table');
+  const sourceSelect = document.querySelector('#meeting-poll-source select');
+  const jsonInput = document.querySelector('#meeting-poll-json-source input, #meeting-poll-json-source textarea');
+
+  if (!container) return;
+
+  // Terminlisten-Generator (Modal) ist unabhaengig von den Feldern und
+  // soll auch dann verfuegbar sein, wenn die Feld-Konfiguration fehlerhaft
+  // waere - deshalb frueh registriert. (Funktionsdeklaration: hoisted.)
+  setupListGenerator();
+
+  if (!sourceSelect || !jsonInput) {
+    // Configuration problem (e.g. field renamed/removed) - fail visibly
+    // instead of leaving a blank, confusing page.
+    container.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-0">' +
+      'Terminfinder: Die erwarteten Felder wurden nicht gefunden. Bitte Preset-Konfiguration pr\u00fcfen.</div>';
+    return;
+  }
+
+  // Read the configured appointment options from the hidden dropdown field.
+  const dateList = [];
+  const invalidEntries = [];
+  const duplicateEntries = [];
+  const seen = new Set();
+
+  for (const option of sourceSelect.options) {
+    const value = (option.value || '').trim();
+    if (!value) continue;
+    if (!isValidDate(value)) {
+      invalidEntries.push(value);
+      continue;
+    }
+    if (seen.has(value)) {
+      duplicateEntries.push(value);
+      continue;
+    }
+    seen.add(value);
+    dateList.push(value);
+  }
+  dateList.sort();
+
+  let warningHtml = '';
+  if (invalidEntries.length > 0 || duplicateEntries.length > 0) {
+    warningHtml += '<div class="alert alert-warning py-2 px-3 small mb-3">';
+    if (invalidEntries.length > 0) {
+      const items = invalidEntries.map((v) => `<code>${escapeHtml(v)}</code>`).join(', ');
+      warningHtml += `<div><strong>Achtung:</strong> ${invalidEntries.length} Eintrag/Eintr\u00e4ge im Feld ` +
+        `\u201eevents\u201c entspricht/entsprechen nicht dem erwarteten Format <code>JJJJ-MM-TT` + `T` +
+        `HH:MM</code> (z.\u00A0B. <code>2026-06-15T12:00</code>) oder <code>JJJJ-MM-TT</code> ` +
+        `f\u00fcr einen ganzt\u00e4gigen Termin (z.\u00A0B. <code>2026-06-15</code>), enth\u00e4lt/enthalten ` +
+        `kein g\u00fcltiges Kalenderdatum oder keine g\u00fcltige Uhrzeit (z.\u00A0B. 30. Februar oder 25:00 Uhr) ` +
+        `und wird/werden daher nicht angezeigt: ${items}</div>`;
+    }
+    if (duplicateEntries.length > 0) {
+      const items = duplicateEntries.map((v) => `<code>${escapeHtml(v)}</code>`).join(', ');
+      const spacingClass = invalidEntries.length > 0 ? ' class="mt-2"' : '';
+      warningHtml += `<div${spacingClass}><strong>Achtung:</strong> Folgender Termin ist im Feld ` +
+        `\u201eevents\u201c mehrfach eingetragen und wird nur einmal angezeigt: ${items}</div>`;
+    }
+    warningHtml += '</div>';
+  }
+
+  if (dateList.length === 0) {
+    container.innerHTML = warningHtml + '<p class="text-muted">Es sind noch keine Termine hinterlegt.</p>';
+    return;
+  }
+
+  // Load an existing answer, e.g. when editing an entry.
+  let existingAnswers = {};
+  try {
+    existingAnswers = JSON.parse(jsonInput.value || '{}') || {};
+  } catch (parseError) {
+    existingAnswers = {};
+  }
+
+  // Group appointments by calendar day so same-day slots share one row label.
+  const dayGroups = new Map();
+  for (const dateTime of dateList) {
+    const day = dateTime.split('T')[0];
+    if (!dayGroups.has(day)) dayGroups.set(day, []);
+    dayGroups.get(day).push(dateTime);
+  }
+
+  const rows = [];
+  for (const day of [...dayGroups.keys()].sort()) {
+    const slots = dayGroups.get(day);
+    slots.forEach((dateTime, index) => {
+      const dayCell = index === 0
+        ? `<td rowspan="${slots.length}" class="align-middle"><div class="meeting-poll-day-name">${weekdayOf(day)}</div>` +
+          `<div class="meeting-poll-day-date">${formatDay(day)}</div></td>`
+        : '';
+      const slotDigits = dateTime.replace(/[^0-9]/g, '');
+      const currentValue = existingAnswers[dateTime];
+
+      // Rendered as checkboxes (not radios): a checkbox's native click
+      // behaviour already toggles off when clicked again, which gives us
+      // "einzeln abwählen" for free. Exclusivity between the three status
+      // options per row is enforced manually in the change handler below.
+      const statusCells = STATUS_OPTIONS.map((status) => {
+        const inputId = `meeting-poll-${slotDigits}_${status.key}`;
+        const isChecked = currentValue === status.key ? ' checked' : '';
+        return `<td class="text-center">` +
+          `<input type="checkbox" class="btn-check meeting-poll-check" autocomplete="off" ` +
+          `style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;" ` +
+          `id="${inputId}" data-datetime="${dateTime}" data-status="${status.key}"${isChecked}>` +
+          `<label class="btn btn-outline-${status.cls} btn-sm" for="${inputId}" title="${status.ariaLabel}" aria-label="${status.ariaLabel}">${status.symbol}</label>` +
+          `</td>`;
+      }).join('');
+
+      const timeCell = isAllDay(dateTime)
+        ? `<td class="text-center fst-italic">${ALL_DAY_LABEL}</td>`
+        : `<td>${dateTime.split('T')[1]}</td>`;
+
+      rows.push(`<tr>${dayCell}${timeCell}${statusCells}</tr>`);
+    });
+  }
+
+  // Column header buttons let the user activate ("alle auf X setzen") or,
+  // on a second click, deactivate a whole status column at once.
+  const columnButtonsHtml = STATUS_OPTIONS.map((status) => {
+    return `<th class="text-center">` +
+      `<button type="button" class="btn btn-outline-${status.cls} btn-sm meeting-poll-col-btn" ` +
+      `data-status="${status.key}" title="Ganze Spalte \u201e${status.ariaLabel}\u201c an-/abwählen" ` +
+      `aria-pressed="false">Alle ${status.symbol}</button>` +
+      `</th>`;
+  }).join('');
+
+  const tableHtml =
+    '<p class="text-muted small mb-2">Mit den Spalten-Buttons lassen sich alle Termine auf einmal beantworten.</p>' +
+    '<table class="meeting-poll-add-table align-middle">' +
+    '<thead>' +
+    '<tr><th rowspan="2" class="align-middle">Tag</th><th rowspan="2" class="align-middle">Uhrzeit</th>' +
+    '<th colspan="3">Deine Antwort</th></tr>' +
+    `<tr>${columnButtonsHtml}</tr>` +
+    '</thead>' +
+    `<tbody>${rows.join('')}</tbody></table>`;
+
+  // Beide Ansichten bedienen dieselben (versteckten) Checkboxen - der
+  // Kalender ist eine reine Praesentationsschicht ueber der bestehenden
+  // Tabellenlogik. JSON-Format und Speicherung bleiben unveraendert.
+  container.innerHTML = warningHtml +
+    '<div class="meeting-poll-view-toggle mb-3" role="group" aria-label="Ansicht w\u00e4hlen">' +
+    '<button type="button" class="btn btn-sm meeting-poll-view-btn" data-view="calendar" aria-pressed="false">\uD83D\uDCC5 Kalender</button>' +
+    '<button type="button" class="btn btn-sm meeting-poll-view-btn" data-view="table" aria-pressed="false">Tabelle</button>' +
+    '</div>' +
+    '<div id="meeting-poll-view-calendar"><div id="meeting-poll-cal-root"></div></div>' +
+    `<div id="meeting-poll-view-table" class="d-none">${tableHtml}</div>`;
+
+  // Cache the checkbox list once instead of re-querying the DOM on every change.
+  const checkboxes = [...document.querySelectorAll('.meeting-poll-check')];
+  const colButtons = [...document.querySelectorAll('.meeting-poll-col-btn')];
+
+  const syncAnswersToHiddenField = () => {
+    const answers = {};
+    for (const checkbox of checkboxes) {
+      if (checkbox.checked) {
+        answers[checkbox.dataset.datetime] = checkbox.dataset.status;
+      }
+    }
+    // Include appointments without a selection as "open" (null), so the list
+    // view always sees the full, consistent set of columns.
+    for (const dateTime of dateList) {
+      if (!(dateTime in answers)) answers[dateTime] = null;
+    }
+    jsonInput.value = JSON.stringify(answers);
+  };
+
+  // Enforce "only one status per row" manually, since we no longer rely on
+  // native radio-group exclusivity.
+  const clearRowExcept = (dateTime, keepCheckbox) => {
+    for (const checkbox of checkboxes) {
+      if (checkbox !== keepCheckbox && checkbox.dataset.datetime === dateTime) {
+        checkbox.checked = false;
+      }
+    }
+  };
+
+  const updateColumnButtonStates = () => {
+    for (const button of colButtons) {
+      const status = button.dataset.status;
+      const columnBoxes = checkboxes.filter((checkbox) => checkbox.dataset.status === status);
+      const allActive = columnBoxes.length > 0 && columnBoxes.every((checkbox) => checkbox.checked);
+      button.classList.toggle('active', allActive);
+      button.setAttribute('aria-pressed', allActive ? 'true' : 'false');
+    }
+  };
+
+  checkboxes.forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) clearRowExcept(checkbox.dataset.datetime, checkbox);
+      syncAnswersToHiddenField();
+      updateColumnButtonStates();
+      updateChips();
+    });
+  });
+
+  colButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const status = button.dataset.status;
+      const columnBoxes = checkboxes.filter((checkbox) => checkbox.dataset.status === status);
+      const allActive = columnBoxes.length > 0 && columnBoxes.every((checkbox) => checkbox.checked);
+
+      if (allActive) {
+        // Second click on a fully active column: deactivate it again.
+        columnBoxes.forEach((checkbox) => { checkbox.checked = false; });
+      } else {
+        // Activate the whole column, clearing any other selection per row.
+        columnBoxes.forEach((checkbox) => {
+          checkbox.checked = true;
+          clearRowExcept(checkbox.dataset.datetime, checkbox);
+        });
+      }
+
+      syncAnswersToHiddenField();
+      updateColumnButtonStates();
+      updateChips();
+    });
+  });
+
+  // ---- Kalenderansicht ---------------------------------------------------
+  // Reine Praesentationsschicht ueber denselben Checkboxen wie die Tabelle:
+  // Ein Chip-Klick setzt die Checkboxen und ruft dieselben Sync-Funktionen
+  // auf (cycleStatus -> syncAnswersToHiddenField). Dadurch bleiben
+  // JSON-Format, Speicherung und bestehende Eintraege unveraendert.
+  const MONTH_NAMES = ['Januar', 'Februar', 'M\u00e4rz', 'April', 'Mai', 'Juni', 'Juli',
+    'August', 'September', 'Oktober', 'November', 'Dezember'];
+  const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const CHIP_META = {
+    yes: { symbol: '\u2713', label: 'Kann' },
+    maybe: { symbol: '?', label: 'Vielleicht' },
+    no: { symbol: '\u2717', label: 'Kann nicht' }
+  };
+  const CHIP_ORDER = [null, 'yes', 'maybe', 'no'];
+  const MAX_VISIBLE_CHIPS = 3;
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const todayIso = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  })();
+
+  // Monate, in denen Termine liegen (nur diese sind im Kalender erreichbar).
+  const monthKeys = [...new Set(dateList.map((dateTime) => dateTime.slice(0, 7)))].sort();
+  let currentMonthIndex = 0;
+
+  // Fuer jeden Termin seine drei (versteckten) Checkboxen merken.
+  const statusBoxes = new Map();
+  for (const checkbox of checkboxes) {
+    if (!statusBoxes.has(checkbox.dataset.datetime)) statusBoxes.set(checkbox.dataset.datetime, []);
+    statusBoxes.get(checkbox.dataset.datetime).push(checkbox);
+  }
+
+  const getStatusOf = (dateTime) => {
+    const boxes = statusBoxes.get(dateTime) || [];
+    const active = boxes.find((box) => box.checked);
+    return active ? active.dataset.status : null;
+  };
+
+  const chipTime = (dateTime) => isAllDay(dateTime) ? 'ganztg.' : dateTime.split('T')[1];
+  const chipDay = (dateTime) => dateTime.split('T')[0];
+
+  const chipAriaLabel = (dateTime, status) => {
+    const time = isAllDay(dateTime) ? 'ganzt\u00e4gig' : `${dateTime.split('T')[1]} Uhr`;
+    const statusLabel = status ? CHIP_META[status].label : 'offen';
+    return `${formatDay(chipDay(dateTime))}, ${time} - Status: ${statusLabel}. Klick \u00e4ndert den Status.`;
+  };
+
+  // Chip-Visuals aus dem tatsaechlichen Checkbox-Zustand neu aufbauen -
+  // so sind Chips immer aktuell, egal ob in Kalender- oder Tabellenansicht
+  // geaendert wurde.
+  const updateChips = () => {
+    container.querySelectorAll('.meeting-poll-chip').forEach((chip) => {
+      const dateTime = chip.dataset.datetime;
+      const status = getStatusOf(dateTime);
+      const isExtra = chip.classList.contains('meeting-poll-chip-extra');
+      chip.className = `meeting-poll-chip meeting-poll-chip-${status || 'open'}${isExtra ? ' meeting-poll-chip-extra' : ''}`;
+      chip.querySelector('.meeting-poll-chip-mark').textContent = status ? CHIP_META[status].symbol : '';
+      chip.setAttribute('aria-label', chipAriaLabel(dateTime, status));
+    });
+  };
+
+  // Offen -> Kann -> Vielleicht -> Kann nicht -> offen.
+  const cycleStatus = (dateTime) => {
+    const next = CHIP_ORDER[(CHIP_ORDER.indexOf(getStatusOf(dateTime)) + 1) % CHIP_ORDER.length];
+    for (const box of statusBoxes.get(dateTime) || []) {
+      box.checked = box.dataset.status === next;
+    }
+    syncAnswersToHiddenField();
+    updateColumnButtonStates();
+    updateChips();
+  };
+
+  const renderCalendar = () => {
+    const calRoot = document.getElementById('meeting-poll-cal-root');
+    if (!calRoot) return;
+    const match = monthKeys[currentMonthIndex].match(/^(\d{4})-(\d{2})$/);
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const firstWeekday = (new Date(year, month - 1, 1).getDay() + 6) % 7; // 0 = Montag
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    let cells = '';
+    for (let i = 0; i < firstWeekday; i++) {
+      cells += '<div class="meeting-poll-cal-cell meeting-poll-cal-empty" aria-hidden="true"></div>';
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const iso = `${match[1]}-${match[2]}-${pad2(day)}`;
+      const slots = dayGroups.get(iso) || [];
+      const todayClass = iso === todayIso ? ' meeting-poll-cal-today' : '';
+      if (slots.length === 0) {
+        cells += `<div class="meeting-poll-cal-cell meeting-poll-cal-blank${todayClass}">` +
+          `<div class="meeting-poll-cal-daynum">${day}</div></div>`;
+        continue;
+      }
+      const chips = slots.map((dateTime, index) => {
+        const status = getStatusOf(dateTime);
+        const extra = index >= MAX_VISIBLE_CHIPS ? ' meeting-poll-chip-extra' : '';
+        return `<button type="button" class="meeting-poll-chip meeting-poll-chip-${status || 'open'}${extra}" data-datetime="${dateTime}" ` +
+          `aria-label="${chipAriaLabel(dateTime, status)}">` +
+          `<span class="meeting-poll-chip-time">${chipTime(dateTime)}</span>` +
+          `<span class="meeting-poll-chip-mark" aria-hidden="true">${status ? CHIP_META[status].symbol : ''}</span></button>`;
+      }).join('');
+      const moreBtn = slots.length > MAX_VISIBLE_CHIPS
+        ? `<button type="button" class="meeting-poll-chip-more" data-day="${iso}" aria-expanded="false" ` +
+          `aria-label="Weitere Termine am ${formatDay(iso)} anzeigen">` +
+          `+${slots.length - MAX_VISIBLE_CHIPS} weitere</button>`
+        : '';
+      cells += `<div class="meeting-poll-cal-cell meeting-poll-cal-day${todayClass}">` +
+        `<div class="meeting-poll-cal-daynum">${day}</div>${chips}${moreBtn}</div>`;
+    }
+
+    calRoot.innerHTML =
+      '<div class="meeting-poll-cal">' +
+      '<div class="meeting-poll-cal-head">' +
+      `<button type="button" class="meeting-poll-cal-nav" data-dir="-1" aria-label="Voriger Monat"${currentMonthIndex === 0 ? ' disabled' : ''}>\u2039</button>` +
+      `<div class="meeting-poll-cal-title">${MONTH_NAMES[month - 1]} ${year}</div>` +
+      `<button type="button" class="meeting-poll-cal-nav" data-dir="1" aria-label="N\u00e4chster Monat"${currentMonthIndex === monthKeys.length - 1 ? ' disabled' : ''}>\u203A</button>` +
+      '</div>' +
+      '<div class="meeting-poll-cal-grid">' +
+      WEEKDAY_LABELS.map((label) => `<div class="meeting-poll-cal-weekday">${label}</div>`).join('') +
+      cells +
+      '</div>' +
+      '<p class="text-muted small mb-0 mt-2">Status per Klick \u00e4ndern: ' +
+      '<span class="meeting-poll-legend meeting-poll-legend-open">offen</span> \u2192 ' +
+      '<span class="meeting-poll-legend meeting-poll-legend-yes">\u2713 Kann</span> \u2192 ' +
+      '<span class="meeting-poll-legend meeting-poll-legend-maybe">? Vielleicht</span> \u2192 ' +
+      '<span class="meeting-poll-legend meeting-poll-legend-no">\u2717 Kann nicht</span> \u2192 ' +
+      '<span class="meeting-poll-legend meeting-poll-legend-open">offen</span>.</p>' +
+      '</div>';
+  };
+
+  const calendarView = container.querySelector('#meeting-poll-view-calendar');
+  const tableView = container.querySelector('#meeting-poll-view-table');
+
+  const setView = (view) => {
+    const useCalendar = view !== 'table';
+    calendarView.classList.toggle('d-none', !useCalendar);
+    tableView.classList.toggle('d-none', useCalendar);
+    container.querySelectorAll('.meeting-poll-view-btn').forEach((button) => {
+      const isActive = (button.dataset.view === 'calendar') === useCalendar;
+      button.classList.toggle('active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+    if (useCalendar) updateChips(); // Chips koennen in der Tabelle geaendert worden sein.
+    try { sessionStorage.setItem('meetingPollAddView', useCalendar ? 'calendar' : 'table'); } catch (error) { /* z. B. privater Modus */ }
+  };
+
+  // Eine zentrale Klick-Behandlung fuer Umschalter, Monatsnavigation,
+  // Chips und "+n weitere" - alle Elemente werden dynamisch gerendert.
+  container.addEventListener('click', (event) => {
+    const viewBtn = event.target.closest('.meeting-poll-view-btn');
+    if (viewBtn) { setView(viewBtn.dataset.view); return; }
+
+    const navBtn = event.target.closest('.meeting-poll-cal-nav');
+    if (navBtn && !navBtn.disabled) {
+      currentMonthIndex = Math.min(monthKeys.length - 1, Math.max(0, currentMonthIndex + Number(navBtn.dataset.dir)));
+      renderCalendar();
+      return;
+    }
+
+    const chip = event.target.closest('.meeting-poll-chip');
+    if (chip) { cycleStatus(chip.dataset.datetime); return; }
+
+    const moreBtn = event.target.closest('.meeting-poll-chip-more');
+    if (moreBtn) {
+      const cell = moreBtn.closest('.meeting-poll-cal-cell');
+      const expanded = cell.classList.toggle('meeting-poll-cal-expanded');
+      const hiddenCount = (dayGroups.get(moreBtn.dataset.day) || []).length - MAX_VISIBLE_CHIPS;
+      moreBtn.textContent = expanded ? 'weniger' : `+${hiddenCount} weitere`;
+      moreBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+  });
+
+  const form = jsonInput.closest('form');
+  if (form) form.addEventListener('submit', syncAnswersToHiddenField);
+
+  // ---- Terminlisten-Generator (Modal im Add-Formular) ---------------------
+  // Der Organisator pflegt die Terminliste als Optionsliste des Menuefelds
+  // "Termine" (eine Zeile pro Termin, Format JJJJ-MM-TT[THH:MM]). Diese
+  // Seite kann das FELD nicht veraendern - aber sie kann die Liste im
+  // Kalender zusammenstellen und in die Zwischenablage kopieren, zum
+  // Einfuegen in die Feld-Optionen. Vollstaendig eigenstaendig gebaut
+  // (eigene Konstanten, eigener Modal-Mechanismus), damit sie unabhaengig
+  // vom Rest des Skripts funktioniert.
+  function setupListGenerator() {
+    const openBtn = document.getElementById('meeting-poll-listgen-open');
+    if (!openBtn) return;
+
+    const MONTHS = ['Januar', 'Februar', 'M\u00e4rz', 'April', 'Mai', 'Juni', 'Juli',
+      'August', 'September', 'Oktober', 'November', 'Dezember'];
+    const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    const pad = (n) => String(n).padStart(2, '0');
+
+    let modalEl = document.getElementById('meeting-poll-listgen-modal');
+    if (!modalEl) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML =
+        '<div class="modal" id="meeting-poll-listgen-modal" tabindex="-1" aria-labelledby="meeting-poll-lg-title" aria-hidden="true" style="display:none;">' +
+        '<div class="modal-dialog modal-lg modal-dialog-scrollable">' +
+        '<div class="modal-content">' +
+        '<div class="modal-header">' +
+        '<h5 class="modal-title" id="meeting-poll-lg-title"><i class="fa-regular fa-calendar-plus me-2" aria-hidden="true"></i>Terminliste erstellen</h5>' +
+        // Eigener Close-Button statt .btn-close (Bootstrap-4-kompatibel).
+        '<button type="button" class="meeting-poll-lg-close" data-meeting-poll-lg-dismiss aria-label="Schlie\u00dfen">\u00d7</button>' +
+        '</div>' +
+        '<div class="modal-body">' +
+        '<p class="small text-muted mb-3">Tage im Kalender anklicken, Uhrzeiten festlegen und die fertige Liste kopieren. ' +
+        'Die Liste geh\u00f6rt in die Optionsliste des Feldes \u201eevents\u201c \u2013 eine Zeile pro Termin.</p>' +
+        '<div class="row g-3">' +
+        '<div class="col-md-7"><div id="meeting-poll-lg-cal"></div></div>' +
+        '<div class="col-md-5">' +
+        '<div class="meeting-poll-lg-modebar" role="group" aria-label="Modus w\u00e4hlen">' +
+        '<button type="button" class="meeting-poll-lg-mode active" data-mode="serie" aria-pressed="true">Serie</button>' +
+        '<button type="button" class="meeting-poll-lg-mode" data-mode="einzeln" aria-pressed="false">Einzeln</button>' +
+        '</div>' +
+        '<div id="meeting-poll-lg-panel-serie">' +
+        '<div class="form-check mb-2">' +
+        '<input class="form-check-input" type="checkbox" id="meeting-poll-lg-serie-allday">' +
+        '<label class="form-check-label small" for="meeting-poll-lg-serie-allday">Ganzt\u00e4gige Tage (ohne Uhrzeit)</label>' +
+        '</div>' +
+        '<div id="meeting-poll-lg-serie-timesection">' +
+        '<div class="meeting-poll-lg-label" id="meeting-poll-lg-time-label">Uhrzeit hinzuf\u00fcgen</div>' +
+        '<div class="meeting-poll-lg-row mb-3">' +
+        '<input type="time" class="form-control" id="meeting-poll-lg-time" value="12:00" aria-labelledby="meeting-poll-lg-time-label">' +
+        '<button type="button" class="meeting-poll-listgen-btn" id="meeting-poll-lg-add">Hinzuf\u00fcgen</button>' +
+        '</div>' +
+        '<div class="meeting-poll-lg-label" id="meeting-poll-lg-range-label">Zeitfenster in gleichm\u00e4\u00dfige Termine teilen</div>' +
+        '<div class="meeting-poll-lg-row mb-2">' +
+        '<input type="time" class="form-control" id="meeting-poll-lg-start" value="09:00" aria-label="Startzeit">' +
+        '<input type="time" class="form-control" id="meeting-poll-lg-end" value="17:00" aria-label="Endzeit">' +
+        '</div>' +
+        '<div class="meeting-poll-lg-row">' +
+        '<select class="form-select" id="meeting-poll-lg-step" aria-label="Intervall in Minuten">' +
+        '<option value="15">15 min</option><option value="30">30 min</option>' +
+        '<option value="60" selected>60 min</option><option value="120">120 min</option>' +
+        '</select>' +
+        '<button type="button" class="meeting-poll-listgen-btn" id="meeting-poll-lg-range">\u00dcbernehmen</button>' +
+        '</div>' +
+        '<div class="mt-2" id="meeting-poll-lg-serie-chips"></div>' +
+        '</div>' + // /timesection
+        '<button type="button" class="meeting-poll-listgen-btn meeting-poll-lg-apply" id="meeting-poll-lg-serie-apply">\u00dcbernehmen in Liste</button>' +
+        '<p class="small text-muted mb-0 mt-2" id="meeting-poll-lg-serie-hint">Erst Tage anklicken.</p>' +
+        '</div>' + // /panel-serie
+        '<div id="meeting-poll-lg-panel-einzeln" class="d-none">' +
+        '<div class="form-check mb-2">' +
+        '<input class="form-check-input" type="checkbox" id="meeting-poll-lg-einzeln-allday">' +
+        '<label class="form-check-label small" for="meeting-poll-lg-einzeln-allday">Ganzt\u00e4gig (ohne Uhrzeit)</label>' +
+        '</div>' +
+        '<div class="meeting-poll-lg-row" id="meeting-poll-lg-einzeln-timerow">' +
+        '<input type="time" class="form-control" id="meeting-poll-lg-einzeln-time" value="12:00" aria-label="Uhrzeit f\u00fcr den gew\u00e4hlten Tag">' +
+        '<button type="button" class="meeting-poll-listgen-btn" id="meeting-poll-lg-einzeln-add" disabled>Hinzuf\u00fcgen</button>' +
+        '</div>' +
+        '<button type="button" class="meeting-poll-listgen-btn meeting-poll-lg-apply d-none" id="meeting-poll-lg-einzeln-allday-add">Als ganzt\u00e4gigen Tag \u00fcbernehmen</button>' +
+        '<p class="small text-muted mb-0 mt-2" id="meeting-poll-lg-einzeln-hint">Erst einen Tag anklicken.</p>' +
+        '</div>' + // /panel-einzeln
+        '<div class="mt-3" id="meeting-poll-lg-listwrap"></div>' +
+        '</div></div>' + // /col /row
+        '<hr class="my-3">' +
+        '<div class="meeting-poll-lg-label" id="meeting-poll-lg-preview-label">Vorschau \u2013 eine Zeile pro Termin</div>' +
+        '<textarea id="meeting-poll-lg-preview" class="form-control" rows="8" readonly aria-labelledby="meeting-poll-lg-preview-label"></textarea>' +
+        '</div>' + // /body
+        '<div class="modal-footer">' +
+        '<span class="meeting-poll-lg-copied d-none" id="meeting-poll-lg-copied"><i class="fa-regular fa-circle-check me-1" aria-hidden="true"></i>Kopiert!</span>' +
+        '<button type="button" class="btn btn-outline-secondary" data-meeting-poll-lg-dismiss>Schlie\u00dfen</button>' +
+        '<button type="button" class="btn btn-outline-secondary" id="meeting-poll-lg-reset">Zur\u00fccksetzen</button>' +
+        '<button type="button" class="btn btn-primary" id="meeting-poll-lg-copy"><i class="fa-regular fa-copy me-1" aria-hidden="true"></i>In Zwischenablage kopieren</button>' +
+        '</div></div></div></div>';
+      document.body.appendChild(wrapper.firstElementChild);
+      modalEl = document.getElementById('meeting-poll-listgen-modal');
+    }
+
+    let mode = 'serie';             // 'serie' | 'einzeln'
+    const selectedDays = new Set(); // Serie: Mehrfachauswahl von Tagen
+    let pickedDay = null;           // Einzeln: genau ein Tag
+    const serieTimes = new Set();   // Uhrzeit-Chips der Serie (wiederverwendbar)
+    const list = new Set();         // fertige Zeilen, dedupliziert
+    const now = new Date();
+    let viewYear = now.getFullYear();
+    let viewMonth = now.getMonth(); // 0-basiert
+
+    const fmtDay = (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+
+    // Modal ein-/ausblenden: Bootstrap-CSS ohne JS-Bundle (wie iCal-Modal).
+    let backdropEl = null;
+    const openModal = () => {
+      if (!backdropEl) {
+        backdropEl = document.createElement('div');
+        backdropEl.className = 'modal-backdrop show';
+        backdropEl.addEventListener('click', closeModal);
+        document.body.appendChild(backdropEl);
+      }
+      modalEl.style.display = 'block';
+      modalEl.classList.add('show');
+      modalEl.removeAttribute('aria-hidden');
+      modalEl.setAttribute('aria-modal', 'true');
+      document.body.classList.add('modal-open');
+    };
+    const closeModal = () => {
+      modalEl.style.display = 'none';
+      modalEl.classList.remove('show');
+      modalEl.setAttribute('aria-hidden', 'true');
+      modalEl.removeAttribute('aria-modal');
+      document.body.classList.remove('modal-open');
+      if (backdropEl) {
+        backdropEl.remove();
+        backdropEl = null;
+      }
+    };
+
+    const toIso = (y, m0, d) => `${y}-${pad(m0 + 1)}-${pad(d)}`;
+
+    const renderCalendar = () => {
+      const calEl = document.getElementById('meeting-poll-lg-cal');
+      if (!calEl) return;
+      const firstWeekday = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7; // 0 = Montag
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      let cells = '';
+      for (let i = 0; i < firstWeekday; i++) {
+        cells += '<div class="meeting-poll-cal-cell meeting-poll-cal-empty" aria-hidden="true"></div>';
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = toIso(viewYear, viewMonth, d);
+        // Serie/Ganztägig: Mehrfachauswahl - Einzeln: genau ein Tag.
+        const picked = mode === 'einzeln' ? iso === pickedDay : selectedDays.has(iso);
+        const todayClass = iso === todayIso ? ' meeting-poll-cal-today' : '';
+        cells += `<button type="button" class="meeting-poll-cal-cell meeting-poll-cal-pick${picked ? ' meeting-poll-cal-picked' : ''}${todayClass}" data-day="${iso}" ` +
+          `aria-pressed="${picked ? 'true' : 'false'}" aria-label="${d}. ${MONTHS[viewMonth]} ${viewYear}${picked ? ', ausgew\u00e4hlt' : ''}">${d}</button>`;
+      }
+      calEl.innerHTML =
+        '<div class="meeting-poll-cal">' +
+        '<div class="meeting-poll-cal-head">' +
+        '<button type="button" class="meeting-poll-cal-nav" data-dir="-1" aria-label="Voriger Monat">\u2039</button>' +
+        `<div class="meeting-poll-cal-title">${MONTHS[viewMonth]} ${viewYear}</div>` +
+        '<button type="button" class="meeting-poll-cal-nav" data-dir="1" aria-label="N\u00e4chster Monat">\u203A</button>' +
+        '</div>' +
+        '<div class="meeting-poll-cal-grid">' +
+        WEEKDAYS.map((w) => `<div class="meeting-poll-cal-weekday">${w}</div>`).join('') +
+        cells +
+        '</div></div>';
+    };
+
+    const renderSerieChips = () => {
+      const wrap = document.getElementById('meeting-poll-lg-serie-chips');
+      if (!wrap) return;
+      const chips = [...serieTimes].sort().map((t) =>
+        `<span class="meeting-poll-lg-chip">${t}` +
+        `<button type="button" class="meeting-poll-lg-chip-x" data-time="${t}" aria-label="Uhrzeit ${t} entfernen">\u00d7</button></span>`
+      ).join('');
+      wrap.innerHTML = chips
+        ? `<div class="meeting-poll-lg-chips">${chips}</div>`
+        : '<div class="meeting-poll-lg-hint">Noch keine Uhrzeiten.</div>';
+    };
+
+    const renderList = () => {
+      const wrap = document.getElementById('meeting-poll-lg-listwrap');
+      if (!wrap) return;
+      const chips = [...list].sort().map((line) => {
+        const day = line.split('T')[0];
+        const time = line.includes('T') ? line.split('T')[1] : null;
+        const label = time ? `${fmtDay(day)}, ${time}` : `${fmtDay(day)} (ganzt\u00e4gig)`;
+        return `<span class="meeting-poll-lg-chip meeting-poll-lg-line">${label}` +
+          `<button type="button" class="meeting-poll-lg-chip-x" data-line="${line}" ` +
+          `aria-label="Termin ${label} entfernen">\u00d7</button></span>`;
+      }).join('');
+      wrap.innerHTML =
+        `<div class="meeting-poll-lg-label">Terminliste <span class="meeting-poll-lg-count-badge">${list.size}</span></div>` +
+        (chips || '<div class="meeting-poll-lg-hint">Noch keine Termine in der Liste.</div>');
+    };
+
+    const renderPreview = () => {
+      const lines = [...list].sort();
+      document.getElementById('meeting-poll-lg-preview').value = lines.join('\n');
+      document.getElementById('meeting-poll-lg-copy').disabled = lines.length === 0;
+
+      // Kontexthinweise + Button-Zustaende je Modus.
+      const serieAllday = document.getElementById('meeting-poll-lg-serie-allday').checked;
+      document.getElementById('meeting-poll-lg-serie-hint').textContent = selectedDays.size === 0
+        ? 'Erst Tage anklicken.'
+        : `${selectedDays.size} Tag(e) ausgew\u00e4hlt.`;
+      document.getElementById('meeting-poll-lg-serie-apply').disabled =
+        selectedDays.size === 0 || (!serieAllday && serieTimes.size === 0);
+
+      document.getElementById('meeting-poll-lg-einzeln-hint').textContent = pickedDay
+        ? `Gew\u00e4hlt: ${fmtDay(pickedDay)}`
+        : 'Erst einen Tag anklicken.';
+      document.getElementById('meeting-poll-lg-einzeln-add').disabled = !pickedDay;
+      document.getElementById('meeting-poll-lg-einzeln-allday-add').disabled = !pickedDay;
+    };
+
+    const renderAll = () => { renderCalendar(); renderSerieChips(); renderList(); renderPreview(); };
+
+    const setMode = (next) => {
+      mode = next;
+      // Auswahl zuruecksetzen - verhindert Missverständnisse beim Wechsel.
+      selectedDays.clear();
+      pickedDay = null;
+      document.getElementById('meeting-poll-lg-panel-serie').classList.toggle('d-none', mode !== 'serie');
+      document.getElementById('meeting-poll-lg-panel-einzeln').classList.toggle('d-none', mode !== 'einzeln');
+      modalEl.querySelectorAll('.meeting-poll-lg-mode').forEach((button) => {
+        const isActive = button.dataset.mode === mode;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+      renderAll();
+    };
+
+    openBtn.addEventListener('click', () => {
+      renderAll();
+      openModal();
+    });
+
+    const fallbackCopy = (textarea) => {
+      textarea.select();
+      try { document.execCommand('copy'); } catch (error) { /* Clipboard blockiert - Vorschau bleibt manuell kopierbar */ }
+    };
+
+    // Alles Modal-Inhalt ist dynamisch -> eine zentrale Klick-Behandlung.
+    modalEl.addEventListener('click', (event) => {
+      if (event.target.closest('[data-meeting-poll-lg-dismiss]')) { closeModal(); return; }
+
+      // Modus-Umschalter (Serie <-> Einzeln).
+      const modeSwitch = event.target.closest('.meeting-poll-lg-mode');
+      if (modeSwitch) { setMode(modeSwitch.dataset.mode); return; }
+
+      const dayBtn = event.target.closest('.meeting-poll-cal-pick');
+      if (dayBtn) {
+        const iso = dayBtn.dataset.day;
+        if (mode === 'einzeln') {
+          // Einfachauswahl: Klick waehlt den Tag, erneuter Klick hebt ab.
+          pickedDay = (pickedDay === iso) ? null : iso;
+        } else if (selectedDays.has(iso)) {
+          selectedDays.delete(iso);
+        } else {
+          selectedDays.add(iso);
+        }
+        renderAll();
+        return;
+      }
+
+      const navBtn = event.target.closest('.meeting-poll-cal-nav');
+      if (navBtn) {
+        viewMonth += Number(navBtn.dataset.dir);
+        if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        renderCalendar();
+        return;
+      }
+
+      // Serie: Uhrzeit-Chip entfernen (nur aus dem Chip-Bereich der Serie).
+      const serieChipX = event.target.closest('#meeting-poll-lg-serie-chips .meeting-poll-lg-chip-x');
+      if (serieChipX) {
+        serieTimes.delete(serieChipX.dataset.time);
+        renderAll();
+        return;
+      }
+
+      // Termin aus der fertigen Liste entfernen.
+      const lineX = event.target.closest('.meeting-poll-lg-line .meeting-poll-lg-chip-x');
+      if (lineX) {
+        list.delete(lineX.dataset.line);
+        renderAll();
+        return;
+      }
+
+      // Serie: Uhrzeit-Chip aufbauen (wird beim Uebernehmen angewendet).
+      if (event.target.closest('#meeting-poll-lg-add')) {
+        const input = document.getElementById('meeting-poll-lg-time');
+        if (input.value) serieTimes.add(input.value);
+        renderAll();
+        return;
+      }
+
+      // Serie: Zeitfenster in gleichmaessige Uhrzeiten teilen.
+      if (event.target.closest('#meeting-poll-lg-range')) {
+        const start = document.getElementById('meeting-poll-lg-start').value;
+        const end = document.getElementById('meeting-poll-lg-end').value;
+        const step = Number(document.getElementById('meeting-poll-lg-step').value) || 60;
+        if (!start || !end) return;
+        const toMinutes = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+        let current = toMinutes(start);
+        const stop = toMinutes(end);
+        let guard = 0; // Schutz vor ungewollt riesigen Listen
+        while (current <= stop && guard < 200) {
+          serieTimes.add(`${pad(Math.floor(current / 60))}:${pad(current % 60)}`);
+          current += step;
+          guard++;
+        }
+        renderAll();
+        return;
+      }
+
+      // Serie: Auswahl in die Liste uebernehmen (Tage x Uhrzeiten oder
+      // ganztägig -> nur Datumszeilen), danach Auswahl freigeben.
+      if (event.target.closest('#meeting-poll-lg-serie-apply')) {
+        const allday = document.getElementById('meeting-poll-lg-serie-allday').checked;
+        if (allday) {
+          for (const d of [...selectedDays].sort()) list.add(d);
+        } else {
+          for (const d of [...selectedDays].sort()) {
+            for (const t of [...serieTimes].sort()) list.add(`${d}T${t}`);
+          }
+        }
+        selectedDays.clear();
+        renderAll();
+        return;
+      }
+
+      // Einzeln: Uhrzeit zum gewaehlten Tag in die Liste.
+      if (event.target.closest('#meeting-poll-lg-einzeln-add')) {
+        const input = document.getElementById('meeting-poll-lg-einzeln-time');
+        if (pickedDay && input.value) list.add(`${pickedDay}T${input.value}`);
+        renderAll();
+        return;
+      }
+
+      // Einzeln: gewaehlten Tag als ganztägigen Termin übernehmen.
+      if (event.target.closest('#meeting-poll-lg-einzeln-allday-add')) {
+        if (pickedDay) list.add(pickedDay);
+        renderAll();
+        return;
+      }
+
+      if (event.target.closest('#meeting-poll-lg-reset')) {
+        selectedDays.clear();
+        pickedDay = null;
+        serieTimes.clear();
+        list.clear();
+        document.getElementById('meeting-poll-lg-serie-allday').checked = false;
+        document.getElementById('meeting-poll-lg-einzeln-allday').checked = false;
+        const fresh = new Date();
+        viewYear = fresh.getFullYear();
+        viewMonth = fresh.getMonth();
+        renderAll();
+        return;
+      }
+
+      if (event.target.closest('#meeting-poll-lg-copy')) {
+        const preview = document.getElementById('meeting-poll-lg-preview');
+        if (!preview.value) return;
+        const copied = document.getElementById('meeting-poll-lg-copied');
+        const showFeedback = () => {
+          copied.classList.remove('d-none');
+          window.setTimeout(() => copied.classList.add('d-none'), 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(preview.value).then(showFeedback, () => { fallbackCopy(preview); showFeedback(); });
+        } else {
+          fallbackCopy(preview);
+          showFeedback();
+        }
+      }
+    });
+
+    // Ganztägig-Checkboxen: Serie blendet die Uhrzeit-Sektion aus,
+    // Einzeln tauscht die Uhrzeit-Zeile gegen den Allday-Button.
+    modalEl.addEventListener('change', (event) => {
+      if (event.target.id === 'meeting-poll-lg-serie-allday') {
+        document.getElementById('meeting-poll-lg-serie-timesection').classList.toggle('d-none', event.target.checked);
+        renderPreview();
+      }
+      if (event.target.id === 'meeting-poll-lg-einzeln-allday') {
+        document.getElementById('meeting-poll-lg-einzeln-timerow').classList.toggle('d-none', event.target.checked);
+        document.getElementById('meeting-poll-lg-einzeln-allday-add').classList.toggle('d-none', !event.target.checked);
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modalEl.classList.contains('show')) closeModal();
+    });
+
+    renderAll();
+  }
+
+  updateColumnButtonStates();
+  syncAnswersToHiddenField();
+  renderCalendar();
+
+  let initialView = 'calendar';
+  try { initialView = sessionStorage.getItem('meetingPollAddView') || 'calendar'; } catch (viewError) { /* z. B. privater Modus */ }
+  setView(initialView);
+})();
+</script>
